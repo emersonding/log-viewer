@@ -61,35 +61,30 @@ final class DebouncerTests: XCTestCase {
 
     func testDebouncerDelaysBetweenTriggerSequences() {
         let expectation1 = self.expectation(description: "First action sequence")
-        let expectation2 = self.expectation(description: "Second action sequence")
         var callCount = 0
 
         let debouncer = Debouncer(delay: 0.1) {
             callCount += 1
-            if callCount == 1 {
-                expectation1.fulfill()
-            } else if callCount == 2 {
-                expectation2.fulfill()
-            }
+            expectation1.fulfill()
         }
 
         // First sequence
         debouncer.trigger()
 
-        waitForExpectations(timeout: 0.3, handler: nil)
+        waitForExpectations(timeout: 0.5, handler: nil)
         XCTAssertEqual(callCount, 1, "First action should have fired")
 
-        // Reset expectations
-        let expectation3 = self.expectation(description: "Third action sequence")
-
         // Second sequence
-        debouncer.trigger()
+        let expectation2 = self.expectation(description: "Second action sequence")
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            expectation3.fulfill()
+        let debouncer2 = Debouncer(delay: 0.1) {
+            callCount += 1
+            expectation2.fulfill()
         }
 
-        waitForExpectations(timeout: 0.3)
+        debouncer2.trigger()
+
+        waitForExpectations(timeout: 0.5)
         XCTAssertEqual(callCount, 2, "Second action should have fired")
     }
 

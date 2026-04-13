@@ -1,137 +1,281 @@
-[2010-04-24 07:51:54,393] DEBUG - [main] BulkOpsClient.main(): Execution begin.
-
-[2010-04-24 07:51:54,393] DEBUG - [main] BulkOpsClient.main(): List of all 
-configurations loaded: {numofthreads=1, impstatchkinterval=30, maxloginattempts=1, 
-manifestfiledir=.\Manifest\, sessionkeepchkinterval=300, routingurl=https://
-sso.crmondemand.com, hosturl=http://sdchs20n263.us.oracle.com, testmode=debug, 
-maxthreadfailure=1, logintimeoutms=180000, csvblocksize=1000, maxsoapsize=10240}
-
-[2010-04-24 07:51:54,393] DEBUG - [main] BulkOpsClient.main(): List of all options 
-loaded: {password=*********, clientloglevel=detailed, waitforcompletion=False, 
-datetimeformat=usa, importloglevel=errors, datafilepath=.\\data\\account1.csv, 
-operation=insert, help=False, mapfilepath=.\\data\\account1.map, 
-clientlogfiledir=., recordtype=account, duplicatecheckoption=externalid, 
-username=oracle/oracle, csvdelimiter=,}
-
-[2010-04-24 07:51:54,393]  INFO - [main] Attempting to log in...
-
-[2010-04-24 07:51:55,081]  INFO - [main] Successfully logged in as: wchung/eric
-
-[2010-04-24 07:51:55,081] DEBUG - [main] BulkOpsClient.doImport(): Execution begin.
-
-[2010-04-24 07:51:55,081]  INFO - [main] Validating Oracle Data Loader On Demand 
-Import request...
-
-[2010-04-24 07:51:55,081] DEBUG - [main] FieldMappingManager.parseMappings(): 
-Execution begin.
-
-[2010-04-24 07:51:55,097] DEBUG - [main] FieldMappingManager.parseMappings(): 
-Execution complete.
-
-[2010-04-24 07:51:55,331] DEBUG - [Thread-1] ODWSSessionKeeperThread.Run(): 
-Submitting BulkOpImportGetRequestDetail WS call
-
-[2010-04-24 07:51:55,331]  INFO - [main] A SOAP request was sent to the server to 
-create the import request.
-
-[2010-04-24 07:51:55,862] DEBUG - [Thread-1] 
-SOAPImpRequestManager.sendImportGetRequestDetail(): SOAP request sent successfully 
-and a response was received
-
-[2010-04-24 07:51:55,862] DEBUG - [Thread-1] ODWSSessionKeeperThread.Run(): 
-BulkOpImportGetRequestDetail WS call finished
-
-[2010-04-24 07:51:55,862] DEBUG - [Thread-1] ODWSSessionKeeperThread.Run(): SOAP 
-response status code=OK
-
-[2010-04-24 07:51:55,862] DEBUG - [Thread-1] ODWSSessionKeeperThread.Run(): Going 
-to sleep for 300 seconds.
-
-[2010-04-24 07:51:55,862] DEBUG - [main] 
-SOAPImpRequestManager.handleSoapFaultException(): Handling SoapFaultException.
-
-[2010-04-24 07:51:55,862] DEBUG - [main] There was an error sending the SOAP request 
-to web service: SBL-ODU-01005
-
-[2010-04-24 07:51:55,862] DEBUG - [main] BulkOpsClient.sendValidationRequest(): 
-Experienced SOAP Request Rate Limit error while sending the validation request.  Will 
-try to send again in 1 sec.
-
-[2010-04-24 07:51:56,862]  INFO - [main] A SOAP request was sent to the server to 
-create the import request.
-
-[2010-04-24 07:52:01,268]  INFO - [main] A response to the SOAP request sent to 
-create the import request on the server has been received.
-
-[2010-04-24 07:52:01,268] DEBUG - [main] 
-SOAPImpRequestManager.sendImportCreateRequest(): SOAP request sent successfully and 
-a response was received
-
-[2010-04-24 07:52:01,268]  INFO - [main] Oracle Data Loader On Demand Import 
-validation PASSED.
-
-[2010-04-24 07:52:01,268] DEBUG - [main] BulkOpsClient.sendValidationRequest(): 
-Execution complete.
-
-[2010-04-24 07:52:01,268] DEBUG - [main] BulkOpsClient.submitImportRequest(): 
-Execution begin.
-
-[2010-04-24 07:52:01,268] DEBUG - [main] BulkOpsClient.submitImportRequest(): 
-Sending CSV Data Segments.
-
-[2010-04-24 07:52:01,268] DEBUG - [main] CSVDataSender.CSVDataSender(): 
-CSVDataSender will use 1 threads.
-
-[2010-04-24 07:52:01,268]  INFO - [main] Submitting Oracle Data Loader On Demand 
-Import request with the following Request Id: 1QA2-Q5NU1...
-
-[2010-04-24 07:52:01,268] DEBUG - [main] CSVDataSender.sendCSVData(): Creating 
-thread 0
-
-[2010-04-24 07:52:01,284]  INFO - [main] Import Request Submission Status: Started
-
-[2010-04-24 07:52:01,284] DEBUG - [main] CSVDataSender.sendCSVData(): Starting 
-thread 0
-
-[2010-04-24 07:52:01,284] DEBUG - [main] CSVDataSender.sendCSVData(): There are 
-pending requests. Going to sleep.
-
-[2010-04-24 07:52:01,284] DEBUG - [Thread-3] CSVDataSenderThread.run(): Thread 0 
-submitting CSV Data Segment: 1 of 1
-
-[2010-04-24 07:52:02,487]  INFO - [Thread-3] A response to the import data SOAP 
-request sent to the server has been received.
-
-[2010-04-24 07:52:02,487] DEBUG - [Thread-3] 
-SOAPImpRequestManager.sendImportDataRequest(): SOAP request sent successfully and a 
-response was received
-
-[2010-04-24 07:52:02,487]  INFO - [Thread-3] A SOAP request containing import data 
-was sent to the server: 1 of 1
-
-[2010-04-24 07:52:02,487] DEBUG - [Thread-3] CSVDataSenderThread.run(): There is no 
-more pending request to be picked up by Thread 0.
-
-[2010-04-24 07:52:02,487] DEBUG - [Thread-3] CSVDataSenderThread.run(): Thread 0 
-terminating now.
-
-[2010-04-24 07:52:06,284]  INFO - [main] Import Request Submission Status: 100.00%
-
-[2010-04-24 07:52:07,284]  INFO - [main] Oracle Data Loader On Demand Import 
-submission completed succesfully.
-
-[2010-04-24 07:52:07,284] DEBUG - [main] BulkOpsClient.submitImportRequest(): 
-Execution complete.
-
-[2010-04-24 07:52:07,300] DEBUG - [main] BulkOpsClient.doImport(): Execution 
-complete.
-
-[2010-04-24 07:52:07,300]  INFO - [main] Attempting to log out...
-
-[2010-04-24 07:52:09,487]  INFO - [main] oracle/oracle is now logged out.
-
-[2010-04-24 07:52:09,487] DEBUG - [Thread-1] ODWSSessionKeeperThread.Run(): 
-Interrupted.
-
-[2010-04-24 07:52:09,487] DEBUG - [main] BulkOpsClient.main(): Execution complete.
-
+2026-04-13 10:00:01 INFO  ========================================================
+2026-04-13 10:00:01 INFO  Starting OracleApp v3.8.2 (Spring Boot 3.2.4)
+2026-04-13 10:00:01 INFO  Active profiles: production
+2026-04-13 10:00:01 INFO  JVM: OpenJDK 21.0.2 (Eclipse Adoptium 21.0.2+13-LTS)
+2026-04-13 10:00:01 INFO  OS: Linux 6.1.0-18-amd64 (amd64)
+2026-04-13 10:00:01 DEBUG JVM arguments: -Xms2g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -Dspring.profiles.active=production -Dserver.port=8443 -Djava.security.egd=file:/dev/./urandom
+2026-04-13 10:00:02 INFO  Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-13 10:00:02 DEBUG Auto-configuration: DataSourceAutoConfiguration, HibernateJpaAutoConfiguration, CacheAutoConfiguration, SecurityAutoConfiguration, ActuatorAutoConfiguration
+2026-04-13 10:00:03 INFO  HikariPool-1 - Starting connection pool...
+2026-04-13 10:00:03 DEBUG HikariPool-1 - Configuration: minimumIdle=10, maximumPoolSize=50, connectionTimeout=30000, idleTimeout=600000, maxLifetime=1800000, validationTimeout=5000, leakDetectionThreshold=60000
+2026-04-13 10:00:04 INFO  HikariPool-1 - Pool initialized successfully (10 connections)
+2026-04-13 10:00:04 DEBUG Database connection validated: PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+2026-04-13 10:00:05 INFO  Hibernate ORM 6.4.4 initialized
+2026-04-13 10:00:05 DEBUG Hibernate dialect: org.hibernate.dialect.PostgreSQLDialect, schema validation mode: validate, show_sql: false, format_sql: false, use_sql_comments: true, batch_size: 25, fetch_size: 100, order_inserts: true, order_updates: true
+2026-04-13 10:00:06 INFO  Redis connection established: redis-cluster.internal:6379 (cluster mode)
+2026-04-13 10:00:06 DEBUG Redis cluster topology: 3 masters, 3 replicas, slots coverage: 16384/16384 (100%)
+2026-04-13 10:00:07 INFO  Kafka consumer group 'oracle-app-consumer' joined (3 partitions assigned)
+2026-04-13 10:00:07 INFO  Cache manager initialized: caffeine (L1, 10000 entries, 5min TTL) + redis (L2, 1hr TTL)
+2026-04-13 10:00:08 INFO  Security: OAuth2 resource server configured with issuer URI https://auth.internal.oracle.com/realms/production
+2026-04-13 10:00:08 DEBUG Security filter chain: CorsFilter -> CsrfFilter -> OAuth2AuthenticationFilter -> AuthorizationFilter -> ExceptionTranslationFilter (5 filters total)
+2026-04-13 10:00:08 INFO  Scheduler initialized: 4 scheduled jobs registered
+2026-04-13 10:00:09 INFO  ========================================================
+2026-04-13 10:00:09 INFO  OracleApp started in 8.142 seconds (process running for 8.891s)
+2026-04-13 10:00:09 INFO  Listening on https://0.0.0.0:8443
+2026-04-13 10:00:10 INFO  Health check endpoint ready at /actuator/health
+2026-04-13 10:00:15 DEBUG ScheduledJob[DataSyncJob] - Next execution at 2026-04-13T10:15:00Z
+2026-04-13 10:00:15 DEBUG ScheduledJob[MetricsAggregator] - Next execution at 2026-04-13T10:05:00Z
+2026-04-13 10:00:15 DEBUG ScheduledJob[CacheWarmup] - Next execution at 2026-04-13T10:01:00Z
+2026-04-13 10:00:15 DEBUG ScheduledJob[StaleSessionPurge] - Next execution at 2026-04-13T10:30:00Z
+2026-04-13 10:00:30 INFO  GET /actuator/health -> 200 (4ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:00:45 TRACE Request headers: {Accept=application/json, User-Agent=kube-probe/1.28, Connection=close}
+2026-04-13 10:00:45 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:01:00 INFO  ScheduledJob[CacheWarmup] - Starting cache warmup for 12 entity types
+2026-04-13 10:01:00 DEBUG CacheWarmup: Loading ProductCatalog (estimated 48,231 entries)
+2026-04-13 10:01:02 DEBUG CacheWarmup: ProductCatalog loaded in 1,843ms (48,231 entries, 62.4 MB heap)
+2026-04-13 10:01:02 DEBUG CacheWarmup: Loading UserPreferences (estimated 125,890 entries)
+2026-04-13 10:01:05 DEBUG CacheWarmup: UserPreferences loaded in 3,102ms (125,890 entries, 98.1 MB heap)
+2026-04-13 10:01:05 INFO  ScheduledJob[CacheWarmup] - Warmup completed in 5,247ms (12 types, 312,445 total entries)
+2026-04-13 10:01:10 INFO  POST /api/v2/auth/login -> 200 (87ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:01:10 DEBUG AuthService: Token issued for user jsmith@oracle.com, roles=[ROLE_USER, ROLE_ANALYST], expires=2026-04-13T11:01:10Z
+2026-04-13 10:01:15 INFO  GET /api/v2/dashboard/summary -> 200 (142ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:01:15 TRACE SQL: SELECT d.id, d.name, d.status, COUNT(t.id) as task_count, SUM(CASE WHEN t.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_count FROM departments d LEFT JOIN tasks t ON t.department_id = d.id WHERE d.org_id = ? AND d.active = true GROUP BY d.id, d.name, d.status ORDER BY d.name ASC /* DashboardRepository.getDepartmentSummary */ -- params: [42]
+2026-04-13 10:01:22 INFO  POST /api/v2/auth/login -> 200 (65ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:01:30 INFO  GET /api/v2/reports/quarterly -> 200 (890ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:01:30 WARNING Slow query detected (672ms): SELECT r.*, json_agg(json_build_object('metric', m.name, 'value', m.value, 'target', m.target, 'variance', m.variance)) as metrics FROM reports r JOIN report_metrics m ON m.report_id = r.id WHERE r.quarter = 'Q1-2026' AND r.org_id = 42 GROUP BY r.id ORDER BY r.created_at DESC LIMIT 50
+2026-04-13 10:01:45 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:02:00 INFO  GET /api/v2/users/me/notifications -> 200 (34ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:02:05 DEBUG RedisCache: HIT key=user:prefs:jsmith@oracle.com (TTL=2847s)
+2026-04-13 10:02:10 INFO  POST /api/v2/search -> 200 (215ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:02:10 DEBUG ElasticsearchQuery: index=oracle-documents, query={"bool":{"must":[{"multi_match":{"query":"revenue forecast Q2","fields":["title^3","body","tags^2"],"type":"best_fields"}},{"term":{"org_id":42}},{"range":{"created_at":{"gte":"2026-01-01"}}}],"filter":[{"term":{"status":"published"}}]}}, took=189ms, hits=23
+2026-04-13 10:02:30 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:02:45 DEBUG HikariPool-1 - Pool stats: active=3, idle=7, waiting=0, total=10
+2026-04-13 10:03:00 INFO  POST /api/v2/tasks -> 201 (112ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:03:00 DEBUG TaskService: Created task id=78432, project=PRJ-2026-048, assignee=mchen@oracle.com, priority=HIGH, due=2026-04-20
+2026-04-13 10:03:01 INFO  Kafka: Published event TaskCreated to topic oracle.tasks.events (partition=1, offset=892341)
+2026-04-13 10:03:15 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:03:30 INFO  GET /api/v2/projects/PRJ-2026-048/tasks -> 200 (78ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:04:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:04:12 INFO  POST /api/v2/auth/login -> 200 (71ms) [client=10.0.3.15, user=admin@oracle.com]
+2026-04-13 10:04:12 DEBUG AuthService: Token issued for user admin@oracle.com, roles=[ROLE_USER, ROLE_ADMIN, ROLE_SUPER_ADMIN], expires=2026-04-13T11:04:12Z
+2026-04-13 10:04:15 INFO  GET /api/v2/admin/system/metrics -> 200 (45ms) [client=10.0.3.15, user=admin@oracle.com]
+2026-04-13 10:04:20 DEBUG Metrics: jvm.memory.heap.used=1.24GB, jvm.memory.heap.max=8.00GB, jvm.threads.live=142, http.server.requests.active=4, db.pool.active=3, cache.hits=8421, cache.misses=234
+2026-04-13 10:04:45 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:05:00 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 10:00-10:05
+2026-04-13 10:05:01 DEBUG MetricsAggregator: HTTP requests=47, avg_latency=89ms, p95=342ms, p99=890ms, errors=0
+2026-04-13 10:05:01 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,102ms
+2026-04-13 10:05:15 WARNING Rate limit approaching for client 10.0.2.88: 85/100 requests in current window (60s)
+2026-04-13 10:05:30 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:06:00 INFO  PUT /api/v2/tasks/78432 -> 200 (94ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:06:00 DEBUG TaskService: Updated task id=78432, status=IN_PROGRESS, previousStatus=OPEN
+2026-04-13 10:06:15 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:07:22 DEBUG GC pause: G1 Young Generation, duration=12ms, before=1.24GB, after=1.18GB, freed=61.4MB
+2026-04-13 10:07:30 INFO  GET /api/v2/documents/DOC-9912/export?format=pdf -> 200 (2341ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:07:30 WARNING Slow request detected (2341ms): PDF export for document DOC-9912 (142 pages, 8.4 MB output)
+2026-04-13 10:08:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:08:45 INFO  POST /api/v2/auth/login -> 401 (12ms) [client=10.0.4.200, user=unknown]
+2026-04-13 10:08:45 WARNING Authentication failed: Invalid credentials for user testuser@oracle.com from IP 10.0.4.200 (attempt 1/5)
+2026-04-13 10:08:47 INFO  POST /api/v2/auth/login -> 401 (8ms) [client=10.0.4.200, user=unknown]
+2026-04-13 10:08:47 WARNING Authentication failed: Invalid credentials for user testuser@oracle.com from IP 10.0.4.200 (attempt 2/5)
+2026-04-13 10:08:49 INFO  POST /api/v2/auth/login -> 401 (9ms) [client=10.0.4.200, user=unknown]
+2026-04-13 10:08:49 WARNING Authentication failed: Invalid credentials for user testuser@oracle.com from IP 10.0.4.200 (attempt 3/5)
+2026-04-13 10:09:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:09:15 INFO  POST /api/v2/webhooks/incoming/stripe -> 200 (67ms) [client=34.198.42.17, webhook=stripe]
+2026-04-13 10:09:15 DEBUG WebhookProcessor: Processed event invoice.payment_succeeded for customer cus_P8x2kLmN9q, amount=$2,499.00, subscription=sub_R4t7vBnM2w
+2026-04-13 10:10:00 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 10:05-10:10
+2026-04-13 10:10:00 DEBUG MetricsAggregator: HTTP requests=38, avg_latency=124ms, p95=890ms, p99=2341ms, errors=2
+2026-04-13 10:10:01 INFO  ScheduledJob[MetricsAggregator] - Completed in 987ms
+2026-04-13 10:10:30 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:11:00 DEBUG RedisCache: MISS key=report:quarterly:Q1-2026:org42 (expired)
+2026-04-13 10:11:00 DEBUG RedisCache: SET key=report:quarterly:Q1-2026:org42 (TTL=3600s, size=24.8KB)
+2026-04-13 10:12:30 INFO  GET /api/v2/projects -> 200 (56ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:13:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:14:00 DEBUG HikariPool-1 - Pool stats: active=2, idle=8, waiting=0, total=10
+2026-04-13 10:14:15 INFO  POST /api/v2/documents -> 201 (234ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:14:15 DEBUG DocumentService: Created document id=DOC-10024, type=REPORT, title="Q2 Revenue Projection Analysis", size=3.2MB, owner=mchen@oracle.com
+2026-04-13 10:15:00 INFO  ScheduledJob[DataSyncJob] - Starting incremental sync from upstream ERP system
+2026-04-13 10:15:01 DEBUG DataSyncJob: Fetching changes since last sync at 2026-04-13T09:15:00Z
+2026-04-13 10:15:03 DEBUG DataSyncJob: Retrieved 1,247 changed records from ERP (accounts=312, contacts=489, orders=446)
+2026-04-13 10:15:05 INFO  DataSyncJob: Processing batch 1/13 (100 records)
+2026-04-13 10:15:08 INFO  DataSyncJob: Processing batch 2/13 (100 records)
+2026-04-13 10:15:10 WARNING DataSyncJob: Conflict detected on record account:AC-88421 - local modification newer than upstream, skipping
+2026-04-13 10:15:11 INFO  DataSyncJob: Processing batch 3/13 (100 records)
+2026-04-13 10:15:14 INFO  DataSyncJob: Processing batch 4/13 (100 records)
+2026-04-13 10:15:17 INFO  DataSyncJob: Processing batch 5/13 (100 records)
+2026-04-13 10:15:19 ERROR DataSyncJob: Failed to process record order:ORD-224418 - com.oracle.app.exception.DataIntegrityException: Foreign key constraint violation: referenced product PRD-0091 does not exist in local database -> at com.oracle.app.sync.DataSyncProcessor.processRecord(DataSyncProcessor.java:187) -> at com.oracle.app.sync.DataSyncProcessor.processBatch(DataSyncProcessor.java:124) -> at com.oracle.app.sync.DataSyncJob.execute(DataSyncJob.java:89) -> at org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54)
+2026-04-13 10:15:20 INFO  DataSyncJob: Processing batch 6/13 (100 records)
+2026-04-13 10:15:22 INFO  DataSyncJob: Processing batch 7/13 (100 records)
+2026-04-13 10:15:25 INFO  DataSyncJob: Processing batch 8/13 (100 records)
+2026-04-13 10:15:28 INFO  DataSyncJob: Processing batch 9/13 (100 records)
+2026-04-13 10:15:30 ERROR DataSyncJob: Failed to process record contact:CT-551209 - com.oracle.app.exception.ValidationException: Email format invalid for contact CT-551209: value='not-an-email' does not match pattern '^[A-Za-z0-9+_.-]+@(.+)$' -> at com.oracle.app.validation.ContactValidator.validate(ContactValidator.java:63) -> at com.oracle.app.sync.DataSyncProcessor.processRecord(DataSyncProcessor.java:172) -> at com.oracle.app.sync.DataSyncProcessor.processBatch(DataSyncProcessor.java:124) -> at com.oracle.app.sync.DataSyncJob.execute(DataSyncJob.java:89)
+2026-04-13 10:15:31 INFO  DataSyncJob: Processing batch 10/13 (100 records)
+2026-04-13 10:15:34 INFO  DataSyncJob: Processing batch 11/13 (100 records)
+2026-04-13 10:15:37 INFO  DataSyncJob: Processing batch 12/13 (100 records)
+2026-04-13 10:15:40 INFO  DataSyncJob: Processing batch 13/13 (47 records)
+2026-04-13 10:15:42 INFO  ScheduledJob[DataSyncJob] - Sync completed in 42,187ms: 1,245/1,247 records processed, 2 errors, 1 conflict
+2026-04-13 10:15:45 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:16:00 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 10:10-10:15
+2026-04-13 10:16:01 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,245ms
+2026-04-13 10:17:00 DEBUG GC pause: G1 Young Generation, duration=18ms, before=2.31GB, after=1.92GB, freed=399.2MB
+2026-04-13 10:18:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:18:30 INFO  POST /api/v2/auth/token/refresh -> 200 (22ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:19:00 INFO  GET /api/v2/tasks?assignee=me&status=IN_PROGRESS -> 200 (67ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 10:20:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:20:15 DEBUG HikariPool-1 - Pool stats: active=1, idle=9, waiting=0, total=10
+2026-04-13 10:22:00 INFO  POST /api/v2/reports/generate -> 202 (45ms) [client=10.0.3.15, user=admin@oracle.com]
+2026-04-13 10:22:00 INFO  ReportGenerator: Queued async report generation job id=RPT-GEN-4421, type=COMPLIANCE_AUDIT, requestedBy=admin@oracle.com
+2026-04-13 10:22:05 DEBUG ReportGenerator: Job RPT-GEN-4421 started, fetching data from 6 sources
+2026-04-13 10:22:15 TRACE SQL: WITH audit_data AS (SELECT a.id, a.action, a.entity_type, a.entity_id, a.user_id, a.timestamp, a.ip_address, a.details, u.name as user_name, u.department, u.role FROM audit_log a JOIN users u ON u.id = a.user_id WHERE a.timestamp BETWEEN '2026-01-01' AND '2026-04-13' AND a.org_id = 42) SELECT entity_type, action, COUNT(*) as count, COUNT(DISTINCT user_id) as unique_users, MIN(timestamp) as first_occurrence, MAX(timestamp) as last_occurrence FROM audit_data GROUP BY entity_type, action ORDER BY count DESC
+2026-04-13 10:22:30 DEBUG ReportGenerator: Job RPT-GEN-4421 data fetch completed (6/6 sources, 24,891 rows total)
+2026-04-13 10:22:45 INFO  ReportGenerator: Job RPT-GEN-4421 completed in 45,231ms, output=compliance_audit_2026Q1.pdf (2.1 MB)
+2026-04-13 10:23:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:25:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:25:30 INFO  Kafka: Received event UserProfileUpdated from topic oracle.users.events (partition=0, offset=441892)
+2026-04-13 10:25:30 DEBUG EventProcessor: Processing UserProfileUpdated for user id=8821, changes={"department":"Engineering","title":"Senior Engineer","manager_id":4412}
+2026-04-13 10:25:31 DEBUG RedisCache: DEL key=user:profile:8821, key=user:prefs:8821, key=org:dept:engineering:members
+2026-04-13 10:28:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:28:12 DEBUG GC pause: G1 Young Generation, duration=9ms, before=2.10GB, after=1.88GB, freed=225.7MB
+2026-04-13 10:30:00 INFO  ScheduledJob[StaleSessionPurge] - Scanning for stale sessions older than 24h
+2026-04-13 10:30:02 INFO  ScheduledJob[StaleSessionPurge] - Purged 47 stale sessions, freed 12.4 MB from session store
+2026-04-13 10:30:15 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:32:00 INFO  POST /api/v2/bulk/import -> 202 (89ms) [client=10.0.3.15, user=admin@oracle.com]
+2026-04-13 10:32:00 INFO  BulkImportService: Starting import job id=IMP-7821, file=contacts_import_apr2026.csv, rows=5,421, requestedBy=admin@oracle.com
+2026-04-13 10:32:05 DEBUG BulkImportService: Validating CSV schema - columns: [first_name, last_name, email, phone, company, title, department, address, city, state, zip, country, notes]
+2026-04-13 10:32:10 WARNING BulkImportService: 23 rows have validation warnings (missing optional fields: phone=12, address=8, notes=3)
+2026-04-13 10:32:15 INFO  BulkImportService: Import job IMP-7821 progress: 1000/5421 (18.4%)
+2026-04-13 10:32:20 INFO  BulkImportService: Import job IMP-7821 progress: 2000/5421 (36.9%)
+2026-04-13 10:32:25 INFO  BulkImportService: Import job IMP-7821 progress: 3000/5421 (55.3%)
+2026-04-13 10:32:30 ERROR BulkImportService: Duplicate key violation at row 3,217 - contact with email=robert.wilson@acme.com already exists (id=CT-44210). Skipping row.
+2026-04-13 10:32:31 INFO  BulkImportService: Import job IMP-7821 progress: 4000/5421 (73.8%)
+2026-04-13 10:32:36 INFO  BulkImportService: Import job IMP-7821 progress: 5000/5421 (92.2%)
+2026-04-13 10:32:40 INFO  BulkImportService: Import job IMP-7821 completed: 5,420 imported, 1 skipped (duplicate), 23 warnings
+2026-04-13 10:33:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:35:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:35:30 DEBUG HikariPool-1 - Pool stats: active=4, idle=6, waiting=0, total=10
+2026-04-13 10:36:00 INFO  POST /api/v2/notifications/send -> 200 (156ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 10:36:00 DEBUG NotificationService: Dispatched notification id=NTF-92341, type=TASK_REMINDER, channel=EMAIL, recipient=mchen@oracle.com, template=task_due_reminder
+2026-04-13 10:38:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:40:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:40:15 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 10:35-10:40
+2026-04-13 10:40:16 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,089ms
+2026-04-13 10:42:00 DEBUG GC pause: G1 Mixed Collection, duration=45ms, before=3.81GB, after=2.14GB, freed=1.67GB
+2026-04-13 10:42:00 WARNING GC pause exceeded threshold (45ms > 30ms): G1 Mixed Collection. Consider tuning -XX:MaxGCPauseMillis or increasing heap size.
+2026-04-13 10:45:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:45:30 INFO  POST /api/v2/auth/login -> 200 (58ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 10:45:30 DEBUG AuthService: Token issued for user analytics-svc@oracle.com, roles=[ROLE_SERVICE, ROLE_ANALYTICS_READ], expires=2026-04-13T11:45:30Z
+2026-04-13 10:45:35 INFO  GET /api/v2/analytics/pipeline/status -> 200 (34ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 10:46:00 INFO  POST /api/v2/analytics/query -> 200 (4,231ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 10:46:00 WARNING Slow query detected (3,892ms): SELECT date_trunc('day', o.created_at) as day, p.category, COUNT(DISTINCT o.customer_id) as unique_customers, SUM(oi.quantity) as total_units, SUM(oi.quantity * oi.unit_price) as revenue, AVG(oi.quantity * oi.unit_price) as avg_order_value FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id WHERE o.created_at >= '2025-04-13' AND o.org_id = 42 AND o.status NOT IN ('CANCELLED', 'REFUNDED') GROUP BY date_trunc('day', o.created_at), p.category ORDER BY day, revenue DESC
+2026-04-13 10:48:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:50:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:50:10 DEBUG HikariPool-1 - Pool stats: active=2, idle=8, waiting=0, total=10
+2026-04-13 10:52:00 INFO  POST /api/v2/webhooks/incoming/github -> 200 (43ms) [client=140.82.112.10, webhook=github]
+2026-04-13 10:52:00 DEBUG WebhookProcessor: Processed event push for repository oracle-internal/platform-api, branch=main, commits=3, pusher=developer42
+2026-04-13 10:55:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 10:57:00 DEBUG RedisCache: Cluster rebalance detected, updating slot mappings for nodes redis-01, redis-02, redis-03
+2026-04-13 10:57:01 INFO  Redis: Cluster slot migration completed, all 16384 slots healthy
+2026-04-13 10:58:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:00:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:00:05 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 10:55-11:00
+2026-04-13 11:00:06 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,312ms
+2026-04-13 11:01:10 DEBUG AuthService: Token expired for user jsmith@oracle.com, triggering refresh flow
+2026-04-13 11:01:11 INFO  POST /api/v2/auth/token/refresh -> 200 (31ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 11:02:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:03:30 INFO  DELETE /api/v2/documents/DOC-8841 -> 200 (89ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 11:03:30 DEBUG DocumentService: Soft-deleted document DOC-8841, scheduled for permanent deletion at 2026-05-13T11:03:30Z
+2026-04-13 11:05:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:05:15 DEBUG GC pause: G1 Young Generation, duration=11ms, before=2.55GB, after=2.22GB, freed=337.9MB
+2026-04-13 11:08:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:10:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:10:30 INFO  POST /api/v2/integrations/slack/notify -> 200 (312ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 11:10:30 DEBUG SlackIntegration: Posted message to channel #project-updates, thread_ts=1744538400.001200, blocks=3
+2026-04-13 11:12:00 DEBUG HikariPool-1 - Pool stats: active=1, idle=9, waiting=0, total=10
+2026-04-13 11:15:00 INFO  ScheduledJob[DataSyncJob] - Starting incremental sync from upstream ERP system
+2026-04-13 11:15:01 DEBUG DataSyncJob: Fetching changes since last sync at 2026-04-13T10:15:00Z
+2026-04-13 11:15:02 DEBUG DataSyncJob: Retrieved 234 changed records from ERP (accounts=45, contacts=112, orders=77)
+2026-04-13 11:15:05 INFO  DataSyncJob: Processing batch 1/3 (100 records)
+2026-04-13 11:15:08 INFO  DataSyncJob: Processing batch 2/3 (100 records)
+2026-04-13 11:15:10 INFO  DataSyncJob: Processing batch 3/3 (34 records)
+2026-04-13 11:15:11 INFO  ScheduledJob[DataSyncJob] - Sync completed in 10,842ms: 234/234 records processed, 0 errors, 0 conflicts
+2026-04-13 11:15:15 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:18:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:20:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:20:30 INFO  POST /api/v2/auth/login -> 200 (62ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 11:21:00 INFO  GET /api/v2/dashboard/summary -> 200 (128ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 11:22:00 DEBUG GC pause: G1 Young Generation, duration=14ms, before=2.98GB, after=2.51GB, freed=481.3MB
+2026-04-13 11:23:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:25:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:25:15 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 11:20-11:25
+2026-04-13 11:25:16 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,178ms
+2026-04-13 11:28:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:30:00 INFO  ScheduledJob[StaleSessionPurge] - Scanning for stale sessions older than 24h
+2026-04-13 11:30:01 INFO  ScheduledJob[StaleSessionPurge] - Purged 12 stale sessions, freed 3.1 MB from session store
+2026-04-13 11:30:15 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:32:00 INFO  POST /api/v2/tasks/78432/comments -> 201 (78ms) [client=10.0.2.88, user=mchen@oracle.com]
+2026-04-13 11:33:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:35:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:35:30 DEBUG HikariPool-1 - Pool stats: active=3, idle=7, waiting=0, total=10
+2026-04-13 11:37:00 INFO  Kafka: Received event OrderCreated from topic oracle.orders.events (partition=2, offset=118924)
+2026-04-13 11:37:00 DEBUG EventProcessor: Processing OrderCreated for order id=ORD-225001, customer=cus_M9r2tKpQ7n, items=7, total=$14,892.50
+2026-04-13 11:37:01 DEBUG EventProcessor: Order ORD-225001 inventory check passed, all 7 items in stock
+2026-04-13 11:37:02 INFO  Kafka: Published event OrderConfirmed to topic oracle.orders.events (partition=2, offset=118925)
+2026-04-13 11:38:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:40:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:40:10 DEBUG GC pause: G1 Young Generation, duration=13ms, before=3.12GB, after=2.74GB, freed=389.1MB
+2026-04-13 11:42:00 INFO  POST /api/v2/search -> 200 (178ms) [client=10.0.2.33, user=jsmith@oracle.com]
+2026-04-13 11:42:00 TRACE ElasticsearchQuery: index=oracle-documents, query={"bool":{"must":[{"match_phrase":{"title":"compliance audit"}},{"term":{"org_id":42}}],"should":[{"range":{"created_at":{"gte":"2026-03-01","boost":2.0}}}],"filter":[{"terms":{"status":["published","draft"]}}]}}, took=152ms, hits=8
+2026-04-13 11:43:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:45:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:45:15 INFO  ScheduledJob[MetricsAggregator] - Aggregating metrics for period 11:40-11:45
+2026-04-13 11:45:16 INFO  ScheduledJob[MetricsAggregator] - Completed in 1,054ms
+2026-04-13 11:47:00 WARNING HikariPool-1 - Connection pool reaching capacity: active=42, idle=0, waiting=8, total=50
+2026-04-13 11:47:00 DEBUG HikariPool-1 - Waiting threads: [http-nio-8443-exec-12, http-nio-8443-exec-15, http-nio-8443-exec-22, http-nio-8443-exec-31, http-nio-8443-exec-35, http-nio-8443-exec-41, http-nio-8443-exec-48, scheduler-thread-3]
+2026-04-13 11:47:01 WARNING Multiple slow queries detected in last 60s: 12 queries exceeded 500ms threshold
+2026-04-13 11:47:02 ERROR Connection acquisition timeout after 30000ms for thread http-nio-8443-exec-48 - org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection -> at org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:64) -> at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108) -> at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:188) -> at com.oracle.app.repository.OrderRepository.findPendingOrders(OrderRepository.java:94)
+2026-04-13 11:47:03 ERROR GET /api/v2/orders/pending -> 503 (30012ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 11:47:03 WARNING Circuit breaker 'orderService' tripped to OPEN state after 3 consecutive failures
+2026-04-13 11:47:05 ERROR POST /api/v2/analytics/query -> 503 (30015ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 11:47:05 ERROR Connection acquisition timeout after 30000ms for thread http-nio-8443-exec-22 - org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection -> at org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:64) -> at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108) -> at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:188) -> at com.oracle.app.service.AnalyticsService.executeQuery(AnalyticsService.java:213)
+2026-04-13 11:47:10 WARNING HikariPool-1 - Connection leak detected: connection was borrowed 65,412ms ago from thread http-nio-8443-exec-07 (stack trace at checkout: com.oracle.app.service.ReportGenerator.generateComplianceReport:147)
+2026-04-13 11:47:10 ERROR HikariPool-1 - Connection leak forced reclamation of connection from thread http-nio-8443-exec-07
+2026-04-13 11:47:15 INFO  HikariPool-1 - Pool recovering: active=28, idle=12, waiting=0, total=50
+2026-04-13 11:47:15 INFO  Circuit breaker 'orderService' state: HALF_OPEN (testing recovery)
+2026-04-13 11:47:20 INFO  GET /api/v2/orders/pending -> 200 (234ms) [client=10.0.5.72, user=analytics-svc@oracle.com]
+2026-04-13 11:47:20 INFO  Circuit breaker 'orderService' recovered to CLOSED state
+2026-04-13 11:48:00 INFO  GET /actuator/health -> 200 (3ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:48:15 DEBUG GC pause: G1 Mixed Collection, duration=52ms, before=5.42GB, after=2.88GB, freed=2.54GB
+2026-04-13 11:48:15 WARNING GC pause exceeded threshold (52ms > 30ms): G1 Mixed Collection. Heap pressure increasing, current usage at 67% of max.
+2026-04-13 11:50:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:50:30 DEBUG RedisCache: Bulk invalidation triggered for pattern org:42:* (estimated 2,340 keys affected)
+2026-04-13 11:50:31 INFO  RedisCache: Bulk invalidation completed, 2,287 keys removed in 892ms
+2026-04-13 11:52:00 INFO  POST /api/v2/auth/login -> 200 (55ms) [client=10.0.6.10, user=batch-processor@oracle.com]
+2026-04-13 11:52:01 INFO  POST /api/v2/batch/invoices/generate -> 202 (78ms) [client=10.0.6.10, user=batch-processor@oracle.com]
+2026-04-13 11:52:01 DEBUG BatchInvoiceService: Queued invoice generation batch id=BATCH-INV-891, count=342, estimatedTime=240s
+2026-04-13 11:53:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:54:00 DEBUG BatchInvoiceService: Batch BATCH-INV-891 progress: 120/342 (35.1%), elapsed=119s
+2026-04-13 11:55:00 INFO  GET /actuator/health -> 200 (1ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:55:30 DEBUG BatchInvoiceService: Batch BATCH-INV-891 progress: 250/342 (73.1%), elapsed=209s
+2026-04-13 11:56:00 INFO  BatchInvoiceService: Batch BATCH-INV-891 completed: 342/342 invoices generated, 0 errors, total_amount=$1,247,891.24
+2026-04-13 11:56:15 DEBUG GC pause: G1 Young Generation, duration=16ms, before=3.44GB, after=2.91GB, freed=542.7MB
+2026-04-13 11:57:00 INFO  GET /actuator/health -> 200 (2ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:57:30 ERROR Redis: Connection to node redis-02 lost: io.lettuce.core.RedisConnectionException: Unable to connect to redis-02.internal:6379 -> at io.lettuce.core.RedisConnectionException.create(RedisConnectionException.java:78) -> at io.lettuce.core.AbstractRedisClient.getConnection(AbstractRedisClient.java:350) -> at com.oracle.app.cache.RedisClusterManager.refreshConnection(RedisClusterManager.java:112)
+2026-04-13 11:57:30 WARNING Redis: Cluster degraded, node redis-02 unreachable. Failover in progress, replica redis-02-r promoting to master.
+2026-04-13 11:57:32 INFO  Redis: Failover completed, redis-02-r promoted to master. Cluster healthy with 3 masters, 2 replicas.
+2026-04-13 11:57:33 DEBUG Redis: Slot mappings updated, reconnected to new topology
+2026-04-13 11:58:00 INFO  GET /actuator/health -> 200 (8ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:58:00 WARNING Health check response time elevated (8ms vs 2ms avg) - Redis cluster topology change may be affecting performance
+2026-04-13 11:58:30 DEBUG HikariPool-1 - Pool stats: active=5, idle=5, waiting=0, total=10
+2026-04-13 11:59:00 INFO  GET /actuator/health -> 200 (3ms) [client=10.0.1.50, lb-health-check]
+2026-04-13 11:59:30 ERROR java.lang.OutOfMemoryError: GC overhead limit exceeded -> at java.lang.AbstractStringBuilder.<init>(AbstractStringBuilder.java:86) -> at java.lang.StringBuilder.<init>(StringBuilder.java:116) -> at com.oracle.app.service.ReportGenerator.buildLargeDataSet(ReportGenerator.java:342) -> at com.oracle.app.service.ReportGenerator.generateYearEndReport(ReportGenerator.java:289) -> at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) -> at org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54) -> at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136) -> at java.lang.Thread.run(Thread.java:840)
+2026-04-13 11:59:30 FATAL JVM heap exhaustion detected: GC overhead limit exceeded. Initiating graceful shutdown sequence.
+2026-04-13 11:59:31 FATAL Shutting down scheduled executors (4 jobs cancelled)
+2026-04-13 11:59:31 ERROR Active HTTP requests interrupted: 3 requests aborted with 503 status
+2026-04-13 11:59:32 INFO  HikariPool-1 - Shutdown initiated, closing 10 connections
+2026-04-13 11:59:32 INFO  HikariPool-1 - Pool shutdown completed
+2026-04-13 11:59:33 INFO  Redis: Disconnecting from cluster (3 connections closed)
+2026-04-13 11:59:33 INFO  Kafka: Consumer group 'oracle-app-consumer' leaving (3 partitions revoked)
+2026-04-13 11:59:34 FATAL OracleApp shutdown complete. Uptime: 1h 59m 25s. Reason: OutOfMemoryError - GC overhead limit exceeded.
+2026-04-13 11:59:34 FATAL ========================================================
+2026-04-13 11:59:34 FATAL POST-MORTEM: Heap dump written to /var/log/oracle-app/heapdump-20260413-115930.hprof (7.8 GB)
+2026-04-13 11:59:34 FATAL Last known state: activeRequests=3, dbPoolActive=5, cacheHitRate=94.2%, uptimeSeconds=7165, totalRequestsServed=12,847
+2026-04-13 11:59:35 FATAL Process exiting with code 137 (OOM killed)

@@ -1,0 +1,47 @@
+name: LogViewer
+options:
+  bundleIdPrefix: com.logviewer
+  deploymentTarget:
+    macOS: "14.0"
+
+targets:
+  LogViewer:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    info:
+      path: Generated-Info.plist
+      properties:
+        CFBundleName: LogViewer
+        CFBundleExecutable: LogViewer
+        CFBundleIdentifier: com.logviewer.app
+        LSMinimumSystemVersion: "14.0"
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: "Copyright © 2026. All rights reserved."
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.logviewer.app
+      PRODUCT_NAME: LogViewer
+      SWIFT_VERSION: "5.9"
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGNING_REQUIRED: NO
+      ENABLE_HARDENED_RUNTIME: NO
+    scheme:
+      testTargets:
+        - LogViewerUITests
+      gatherCoverageData: true
+
+  LogViewerUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: LogViewer
+    settings:
+      SWIFT_VERSION: "5.9"
+      GENERATE_INFOPLIST_FILE: YES
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGNING_REQUIRED: NO

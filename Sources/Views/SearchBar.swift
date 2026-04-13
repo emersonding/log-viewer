@@ -43,11 +43,7 @@ struct SearchBar: View {
                 .focused($isSearchFocused)
                 .onChange(of: localQuery) { _, newValue in
                     viewModel.searchState.query = newValue
-                    if newValue.isEmpty {
-                        // Reset search state when clearing field
-                        viewModel.searchState.matchingLineIDs = []
-                        viewModel.searchState.currentMatchIndex = 0
-                    }
+                    viewModel.applyFilters()
                 }
                 .onSubmit {
                     // Enter key: next match in jump mode
@@ -56,6 +52,10 @@ struct SearchBar: View {
                     {
                         viewModel.nextMatch()
                     }
+                }
+                .onExitCommand {
+                    // Esc key: de-focus search field
+                    isSearchFocused = false
                 }
                 .accessibilityLabel("Search logs")
                 .accessibilityHint("Enter text to search log entries")

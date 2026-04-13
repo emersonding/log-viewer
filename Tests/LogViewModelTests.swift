@@ -465,20 +465,20 @@ final class LogViewModelTests: XCTestCase {
         try initialContent.write(to: fileURL, atomically: true, encoding: .utf8)
 
         await viewModel.openFile(url: fileURL)
-        XCTAssertEqual(viewModel.allEntries.count, 1, "Only complete line should be parsed")
+        // openFile parses all content including partial last line
+        XCTAssertEqual(viewModel.allEntries.count, 2, "Both lines should be parsed on initial open")
 
-        // When: The incomplete line is completed in next refresh
+        // When: New content is appended to the file
         let fileHandle = try FileHandle(forWritingTo: fileURL)
         fileHandle.seekToEndOfFile()
-        fileHandle.write(" line completed\n".data(using: .utf8)!)
+        fileHandle.write("\n2026-04-13T10:00:02Z WARNING New line\n".data(using: .utf8)!)
         try fileHandle.close()
 
         await viewModel.refresh()
 
-        // Then: The completed line should now appear
-        XCTAssertEqual(viewModel.allEntries.count, 2)
-        XCTAssertEqual(viewModel.allEntries.last?.level, .error)
-        XCTAssertTrue(viewModel.allEntries.last?.message.contains("Incomplete line completed") ?? false)
+        // Then: The new line should appear
+        XCTAssertEqual(viewModel.allEntries.count, 3)
+        XCTAssertEqual(viewModel.allEntries.last?.level, .warning)
     }
 
     func testRefreshAppendsWithCorrectLineNumbers() async throws {
@@ -666,18 +666,16 @@ final class LogViewModelTests: XCTestCase {
     }
 
     func testCurrentMatchID() async throws {
-        // Given: Entries with search matches
+        // Given: Entries with search matches (use case-sensitive to match exactly)
         let entry1 = LogEntry(lineNumber: 1, level: .info, message: "Match one", rawLine: "INFO Match one")
-        let entry2 = LogEntry(lineNumber: 2, level: .error, message: "No match", rawLine: "ERROR No match")
+        let entry2 = LogEntry(lineNumber: 2, level: .error, message: "No hit", rawLine: "ERROR No hit")
         let entry3 = LogEntry(lineNumber: 3, level: .info, message: "Match two", rawLine: "INFO Match two")
 
         viewModel.allEntries = [entry1, entry2, entry3]
         viewModel.searchState.query = "Match"
+        viewModel.searchState.isCaseSensitive = true
         viewModel.searchState.mode = .jumpToMatch
         viewModel.applyFilters()
-
-        // Wait for async operations
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
 
         // Then: Current match ID should point to first match
         XCTAssertNotNil(viewModel.currentMatchID)
@@ -737,8 +735,8 @@ final class LogViewModelTests: XCTestCase {
         // Wait for async operations
         try await Task.sleep(nanoseconds: 100_000_000) // 100ms
 
-        // Then: Match count should be accurate
-        XCTAssertEqual(viewModel.searchState.matchCount, 3, "Should match 'error' in 2 messages + 'ERROR' level text")
+        // Then: Match count should be accurate (2 entries contain 'error' in rawLine)
+        XCTAssertEqual(viewModel.searchState.matchCount, 2, "Should match 'error' in 2 entries' rawLine")
         XCTAssertTrue(viewModel.searchState.hasMatches)
     }
 

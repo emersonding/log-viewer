@@ -51,7 +51,7 @@ final class FileWatcherTests: XCTestCase {
 
         // Modify the file
         try await Task.sleep(for: .milliseconds(100))
-        try "Modified content\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Modified content\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         await fulfillment(of: [expectation], timeout: 2.0)
 
@@ -71,7 +71,7 @@ final class FileWatcherTests: XCTestCase {
 
         // Modify the file after stopping
         try await Task.sleep(for: .milliseconds(100))
-        try "Modified content\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Modified content\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         // Wait to ensure callback is not called
         try await Task.sleep(for: .milliseconds(800))
@@ -93,13 +93,13 @@ final class FileWatcherTests: XCTestCase {
 
         // Perform rapid writes (within 500ms window)
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 1\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 1\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 2\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 2\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 3\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 3\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         // Wait for debounce period plus buffer
         await fulfillment(of: [expectation], timeout: 2.0)
@@ -126,19 +126,19 @@ final class FileWatcherTests: XCTestCase {
 
         // First window of rapid writes
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 1\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 1\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 2\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 2\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         // Wait for debounce to trigger (500ms + buffer)
         try await Task.sleep(for: .milliseconds(700))
 
         // Second window of rapid writes
-        try "Write 3\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 3\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Write 4\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Write 4\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         // Wait for second debounce
         await fulfillment(of: [expectation], timeout: 2.0)
@@ -180,7 +180,7 @@ final class FileWatcherTests: XCTestCase {
         // Replace the file (like logrotate does)
         try await Task.sleep(for: .milliseconds(100))
         try FileManager.default.removeItem(at: testFile)
-        try "Replaced content\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Replaced content\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         await fulfillment(of: [expectation], timeout: 2.0)
 
@@ -200,7 +200,7 @@ final class FileWatcherTests: XCTestCase {
         }
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Modified\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Modified\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         await fulfillment(of: [expectation], timeout: 2.0)
 
@@ -238,7 +238,7 @@ final class FileWatcherTests: XCTestCase {
         }
 
         try await Task.sleep(for: .milliseconds(100))
-        try "Modified\n".write(to: testFile, atomically: true, encoding: .utf8)
+        try "Modified\n".write(to: testFile, atomically: false, encoding: .utf8)
 
         await fulfillment(of: [expectation], timeout: 2.0)
 

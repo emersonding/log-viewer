@@ -23,8 +23,9 @@ struct FilterBar: View {
                 Button("All") {
                     selectAllLevels()
                 }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .font(.system(size: 11, weight: .medium))
                 .help("Enable all log levels")
                 .accessibilityLabel("Enable all log levels")
                 .accessibilityHint("Shows all log levels in the viewer")
@@ -32,8 +33,9 @@ struct FilterBar: View {
                 Button("None") {
                     deselectAllLevels()
                 }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .font(.system(size: 11, weight: .medium))
                 .help("Disable all log levels")
                 .accessibilityLabel("Disable all log levels")
                 .accessibilityHint("Hides all log levels from the viewer")

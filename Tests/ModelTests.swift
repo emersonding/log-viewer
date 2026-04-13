@@ -228,6 +228,7 @@ final class ModelTests: XCTestCase {
 
     // MARK: - LogViewModel Tests
 
+    @MainActor
     func testLogViewModelInitialization() {
         let viewModel = LogViewModel()
 

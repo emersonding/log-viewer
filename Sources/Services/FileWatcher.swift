@@ -15,7 +15,7 @@ final class FileWatcher {
 
     private var fileDescriptor: Int32 = -1
     private var dispatchSource: DispatchSourceFileSystemObject?
-    private var debounceTimer: Timer?
+    private var debounceTask: Task<Void, Never>?
     private var callback: (@Sendable () -> Void)?
     private let debounceDelay: TimeInterval = 0.5 // 500ms
 
@@ -25,7 +25,7 @@ final class FileWatcher {
 
     deinit {
         // Synchronous cleanup in deinit
-        debounceTimer?.invalidate()
+        debounceTask?.cancel()
         dispatchSource?.cancel()
         if fileDescriptor >= 0 {
             close(fileDescriptor)
@@ -70,27 +70,30 @@ final class FileWatcher {
 
                 // Handle file deletion or permission revocation
                 if eventMask.contains(.delete) || eventMask.contains(.revoke) {
+                    // Capture callback before stopping (stop nils it)
+                    let cb = self.callback
+
                     // Stop watching the file
                     self.stop()
 
                     // Trigger callback immediately for deletion/revocation
-                    self.callback?()
+                    cb?()
                     return
                 }
 
                 // Normal write/rename events - debounce the callback
-                // Cancel existing timer
-                self.debounceTimer?.invalidate()
+                // Cancel existing debounce task
+                self.debounceTask?.cancel()
 
-                // Capture callback to avoid accessing it from timer closure
+                // Capture callback to avoid accessing it from task closure
                 guard let callback = self.callback else { return }
 
-                // Create new timer
-                self.debounceTimer = Timer.scheduledTimer(
-                    withTimeInterval: self.debounceDelay,
-                    repeats: false
-                ) { _ in
-                    callback()
+                let delay = self.debounceDelay
+                self.debounceTask = Task {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    if !Task.isCancelled {
+                        callback()
+                    }
                 }
             }
         }
@@ -109,9 +112,9 @@ final class FileWatcher {
 
     /// Stops monitoring the file
     func stop() {
-        // Invalidate debounce timer
-        debounceTimer?.invalidate()
-        debounceTimer = nil
+        // Cancel debounce task
+        debounceTask?.cancel()
+        debounceTask = nil
 
         // Cancel dispatch source (this will trigger cancelHandler which closes fd)
         dispatchSource?.cancel()

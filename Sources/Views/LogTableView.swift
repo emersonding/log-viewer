@@ -14,6 +14,7 @@ struct LogTableView: View {
 
     @MainActor
     var body: some View {
+        GeometryReader { geometry in
         ScrollViewReader { proxy in
             ScrollView([.horizontal, .vertical]) {
                 if viewModel.displayedEntries.isEmpty {
@@ -32,17 +33,17 @@ struct LogTableView: View {
                                 isCaseSensitive: viewModel.searchState.isCaseSensitive
                             )
                             .id(entry.id)
-                            .frame(maxWidth: .infinity, alignment: .leading)
 
                             Divider()
                                 .opacity(0.2)
                         }
                     }
+                    .frame(minWidth: geometry.size.width, minHeight: geometry.size.height, alignment: .topLeading)
                     .background(
-                        GeometryReader { geometry in
+                        GeometryReader { scrollGeometry in
                             Color.clear.preference(
                                 key: ScrollOffsetPreferenceKey.self,
-                                value: geometry.frame(in: .named("scroll")).minY
+                                value: scrollGeometry.frame(in: .named("scroll")).minY
                             )
                         }
                     )
@@ -63,6 +64,7 @@ struct LogTableView: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Log entries")
             .accessibilityHint("Scrollable list of log entries. Use arrow keys to navigate.")
+        }
         }
     }
 

@@ -145,7 +145,7 @@ final class PerformanceTests: XCTestCase {
             if i % 2 == 0 {
                 viewModel.filterState.enabledLevels = [.error, .fatal]
             } else {
-                viewModel.filterState.enabledLevels = LogLevel.allCases
+                viewModel.filterState.enabledLevels = Set(LogLevel.allCases)
             }
             viewModel.applyFilters()
             // Don't wait - immediately trigger next filter

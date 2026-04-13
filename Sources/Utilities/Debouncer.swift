@@ -27,7 +27,7 @@ import Foundation
 actor Debouncer {
     private let delay: TimeInterval
     private let action: @Sendable () -> Void
-    private var timer: Timer?
+    private var task: Task<Void, Never>?
 
     /// Initialize a debouncer.
     ///
@@ -50,12 +50,17 @@ actor Debouncer {
     }
 
     private func _trigger() {
-        // Cancel existing timer
-        timer?.invalidate()
+        // Cancel existing task
+        task?.cancel()
 
-        // Schedule new timer
-        timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            self?.action()
+        // Schedule new task
+        let delay = self.delay
+        let action = self.action
+        task = Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            if !Task.isCancelled {
+                action()
+            }
         }
     }
 
@@ -69,7 +74,7 @@ actor Debouncer {
     }
 
     private func _cancel() {
-        timer?.invalidate()
-        timer = nil
+        task?.cancel()
+        task = nil
     }
 }

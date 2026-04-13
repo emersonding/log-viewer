@@ -52,16 +52,16 @@ struct LogLineView: View {
         if shouldTruncateLine {
             // Long line truncation
             Text(truncatedContent)
-                .lineLimit(isLineWrapEnabled ? nil : 1)
+                .fixedSize(horizontal: !isLineWrapEnabled, vertical: false)
         } else {
             // Normal rendering with search highlights
             if isSearchMatch && !searchQuery.isEmpty {
                 highlightedTextWithSearch
-                    .lineLimit(isLineWrapEnabled ? nil : 1)
+                    .fixedSize(horizontal: !isLineWrapEnabled, vertical: false)
             } else {
                 // Standard syntax highlighting
                 Text(Self.highlighter.highlight(entry))
-                    .lineLimit(isLineWrapEnabled ? nil : 1)
+                    .fixedSize(horizontal: !isLineWrapEnabled, vertical: false)
             }
         }
     }

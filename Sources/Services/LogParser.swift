@@ -15,6 +15,46 @@ actor LogParser {
     /// Default chunk size for processing: 1MB
     private let chunkSize = 1_048_576
 
+    // Pre-compiled regexes for performance
+    private let isoTimestampRegex = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}"#)
+    private let syslogTimestampRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#)
+    private let epochTimestampRegex = try! NSRegularExpression(pattern: #"^\d{10,13}(\.\d+)?"#)
+    private let logLevelRegex = try! NSRegularExpression(pattern: #"^(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\b"#, options: .caseInsensitive)
+    private let isoExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)"#)
+    private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)"#)
+    private let syslogExtractRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})"#)
+    private let epochExtractRegex = try! NSRegularExpression(pattern: #"^(\d{10,13}(?:\.\d+)?)"#)
+
+    // Cached date formatters for performance
+    private let isoFormatterWithFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private let isoFormatterWithoutFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+    private let syslogDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d HH:mm:ss yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+    private let spaceDatetimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+    private let spaceDatetimeWithFracFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     /// Parse raw data into an array of LogEntry objects.
     /// - Parameters:
     ///   - data: Raw log file data
@@ -243,19 +283,20 @@ actor LogParser {
 
     /// Checks if line starts with a timestamp
     private func hasTimestamp(_ line: String) -> Bool {
+        let nsRange = NSRange(line.startIndex..., in: line)
+
         // ISO 8601: starts with 4-digit year
-        if line.range(of: #"^\d{4}-\d{2}-\d{2}"#, options: .regularExpression) != nil {
+        if isoTimestampRegex.firstMatch(in: line, range: nsRange) != nil {
             return true
         }
 
         // Syslog: starts with month abbreviation
-        let syslogPattern = #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#
-        if line.range(of: syslogPattern, options: .regularExpression) != nil {
+        if syslogTimestampRegex.firstMatch(in: line, range: nsRange) != nil {
             return true
         }
 
         // Unix epoch: starts with 10-13 digit number (possibly with decimal)
-        if line.range(of: #"^\d{10,13}(\.\d+)?"#, options: .regularExpression) != nil {
+        if epochTimestampRegex.firstMatch(in: line, range: nsRange) != nil {
             return true
         }
 
@@ -264,8 +305,8 @@ actor LogParser {
 
     /// Checks if line starts with a log level keyword
     private func hasLogLevelAtStart(_ line: String) -> Bool {
-        let logLevelPattern = #"^(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\b"#
-        return line.range(of: logLevelPattern, options: [.regularExpression, .caseInsensitive]) != nil
+        let nsRange = NSRange(line.startIndex..., in: line)
+        return logLevelRegex.firstMatch(in: line, range: nsRange) != nil
     }
 
     /// Parse a single line into a PendingEntry
@@ -294,9 +335,14 @@ actor LogParser {
     private func extractTimestamp(_ line: inout String) -> Date? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-        // Try ISO 8601 format
+        // Try ISO 8601 format (with T separator)
         if let isoDate = tryParseISO8601(trimmed, consumedLength: &line) {
             return isoDate
+        }
+
+        // Try space-separated datetime (2026-04-13 10:00:00)
+        if let spaceDate = tryParseSpaceDatetime(trimmed, consumedLength: &line) {
+            return spaceDate
         }
 
         // Try syslog format
@@ -314,23 +360,19 @@ actor LogParser {
 
     /// Try to parse ISO 8601 timestamp
     private func tryParseISO8601(_ line: String, consumedLength: inout String) -> Date? {
-        // Pattern: 2026-04-13T10:30:00Z or 2026-04-13T10:30:00+08:00
-        let pattern = #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)"#
-
-        guard let range = line.range(of: pattern, options: .regularExpression) else {
+        let nsRange = NSRange(line.startIndex..., in: line)
+        guard let match = isoExtractRegex.firstMatch(in: line, range: nsRange),
+              let range = Range(match.range, in: line) else {
             return nil
         }
 
         let timestampString = String(line[range])
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-        var date = formatter.date(from: timestampString)
+        var date = isoFormatterWithFractional.date(from: timestampString)
 
         // Try without fractional seconds if that fails
         if date == nil {
-            formatter.formatOptions = [.withInternetDateTime]
-            date = formatter.date(from: timestampString)
+            date = isoFormatterWithoutFractional.date(from: timestampString)
         }
 
         if date != nil {
@@ -341,28 +383,45 @@ actor LogParser {
         return date
     }
 
-    /// Try to parse syslog timestamp (e.g., "Apr 13 10:30:00")
-    private func tryParseSyslog(_ line: String, consumedLength: inout String) -> Date? {
-        let pattern = #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})"#
-
-        guard let range = line.range(of: pattern, options: .regularExpression) else {
+    /// Try to parse space-separated datetime (e.g., "2026-04-13 10:00:00" or "2026-04-13 10:00:00.123")
+    private func tryParseSpaceDatetime(_ line: String, consumedLength: inout String) -> Date? {
+        let nsRange = NSRange(line.startIndex..., in: line)
+        guard let match = spaceDatetimeExtractRegex.firstMatch(in: line, range: nsRange),
+              let range = Range(match.range, in: line) else {
             return nil
         }
 
         let timestampString = String(line[range])
 
-        // Create a date formatter for syslog format
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d HH:mm:ss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        // Try with fractional seconds first, then without
+        var date = spaceDatetimeWithFracFormatter.date(from: timestampString)
+        if date == nil {
+            date = spaceDatetimeFormatter.date(from: timestampString)
+        }
+
+        if date != nil {
+            consumedLength = String(line[range.upperBound...])
+        }
+
+        return date
+    }
+
+    /// Try to parse syslog timestamp (e.g., "Apr 13 10:30:00")
+    private func tryParseSyslog(_ line: String, consumedLength: inout String) -> Date? {
+        let nsRange = NSRange(line.startIndex..., in: line)
+        guard let match = syslogExtractRegex.firstMatch(in: line, range: nsRange),
+              let range = Range(match.range, in: line) else {
+            return nil
+        }
+
+        let timestampString = String(line[range])
 
         // Syslog doesn't include year, assume current year
         let calendar = Calendar.current
         let currentYear = calendar.component(.year, from: Date())
         let fullTimestamp = "\(timestampString) \(currentYear)"
-        formatter.dateFormat = "MMM d HH:mm:ss yyyy"
 
-        if let date = formatter.date(from: fullTimestamp) {
+        if let date = syslogDateFormatter.date(from: fullTimestamp) {
             consumedLength = String(line[range.upperBound...])
             return date
         }
@@ -372,9 +431,9 @@ actor LogParser {
 
     /// Try to parse Unix epoch timestamp
     private func tryParseEpoch(_ line: String, consumedLength: inout String) -> Date? {
-        let pattern = #"^(\d{10,13}(?:\.\d+)?)"#
-
-        guard let range = line.range(of: pattern, options: .regularExpression) else {
+        let nsRange = NSRange(line.startIndex..., in: line)
+        guard let match = epochExtractRegex.firstMatch(in: line, range: nsRange),
+              let range = Range(match.range, in: line) else {
             return nil
         }
 
@@ -394,32 +453,32 @@ actor LogParser {
     /// Extract log level from the beginning of a string
     private func extractLogLevel(_ line: inout String) -> LogLevel? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let nsRange = NSRange(trimmed.startIndex..., in: trimmed)
+
+        guard let match = logLevelRegex.firstMatch(in: trimmed, range: nsRange),
+              let range = Range(match.range, in: trimmed) else {
+            // No log level found, leave line as-is
+            line = trimmed
+            return nil
+        }
+
+        let keyword = trimmed[range].uppercased()
 
         // Map of keywords to log levels (including aliases)
         let levelMap: [String: LogLevel] = [
             "FATAL": .fatal,
-            "CRITICAL": .fatal,  // CRITICAL -> FATAL
+            "CRITICAL": .fatal,
             "ERROR": .error,
-            "WARN": .warning,    // WARN -> WARNING
+            "WARN": .warning,
             "WARNING": .warning,
             "INFO": .info,
             "DEBUG": .debug,
             "TRACE": .trace
         ]
 
-        // Try to match log level at the start (case-insensitive)
-        for (keyword, level) in levelMap {
-            let pattern = "^" + keyword + "\\b"
-            if let range = trimmed.range(of: pattern, options: [.regularExpression, .caseInsensitive]) {
-                // Remove the log level from the line
-                line = String(trimmed[range.upperBound...])
-                return level
-            }
-        }
-
-        // No log level found, leave line as-is
-        line = trimmed
-        return nil
+        let level = levelMap[keyword]
+        line = String(trimmed[range.upperBound...])
+        return level
     }
 }
 

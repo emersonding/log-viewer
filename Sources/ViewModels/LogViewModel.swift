@@ -225,7 +225,14 @@ final class LogViewModel {
             // For small datasets, filter synchronously
             displayedEntries = performFilteringSynchronous()
             print("🎯 Filters applied: \(displayedEntries.count) entries displayed (from \(allEntries.count) total)")
-            // Update search matches if in jump mode (synchronous already handles this)
+            // Update search matches for jump mode
+            if searchState.mode == .jumpToMatch && !searchState.query.isEmpty {
+                let regex = try? createSearchRegex(query: searchState.query, caseSensitive: searchState.isCaseSensitive)
+                updateSearchMatches(in: displayedEntries, regex: regex)
+            } else if searchState.query.isEmpty {
+                searchState.matchingLineIDs = []
+                searchState.currentMatchIndex = 0
+            }
         }
     }
 
