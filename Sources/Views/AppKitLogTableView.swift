@@ -37,10 +37,11 @@ struct AppKitLogTableView: NSViewRepresentable {
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsMultipleSelection = false
         tableView.headerView = nil // No header row
-        tableView.intercellSpacing = NSSize(width: 0, height: 0)
+        tableView.intercellSpacing = NSSize(width: 4, height: 0)
         tableView.gridStyleMask = []
         tableView.usesAutomaticRowHeights = true
-        tableView.rowHeight = context.coordinator.computeRowHeight(fontSize: viewModel.settingsState.fontSize)
+        // rowHeight is the estimated height for scroll bar; actual height from Auto Layout
+        tableView.rowHeight = 20
 
         // Line number column
         let lineNumberColumn = NSTableColumn(identifier: Self.lineNumberColumnID)
@@ -84,11 +85,6 @@ struct AppKitLogTableView: NSViewRepresentable {
         coordinator.viewModel = viewModel
 
         guard let tableView = coordinator.tableView else { return }
-
-        let newRowHeight = coordinator.computeRowHeight(fontSize: viewModel.settingsState.fontSize)
-        if tableView.rowHeight != newRowHeight {
-            tableView.rowHeight = newRowHeight
-        }
 
         // Reload data when filterChangeCounter changes
         let currentCounter = viewModel.filterChangeCounter
@@ -174,26 +170,44 @@ struct AppKitLogTableView: NSViewRepresentable {
 
         private func makeLineNumberCell(tableView: NSTableView, lineNumber: Int, font: NSFont) -> NSView {
             let cellID = AppKitLogTableView.lineNumberCellID
+            let cellView: NSTableCellView
             let textField: NSTextField
 
-            if let reused = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTextField {
-                textField = reused
+            if let reused = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView,
+               let existingTF = reused.textField {
+                cellView = reused
+                textField = existingTF
             } else {
-                textField = NSTextField(labelWithString: "")
-                textField.identifier = cellID
-                textField.alignment = .right
-                textField.textColor = .secondaryLabelColor
-                textField.isEditable = false
-                textField.isBordered = false
-                textField.drawsBackground = false
-                textField.isSelectable = false
-                textField.lineBreakMode = .byClipping
-                textField.cell?.truncatesLastVisibleLine = true
+                let tf = NSTextField(labelWithString: "")
+                tf.alignment = .right
+                tf.textColor = .secondaryLabelColor
+                tf.isEditable = false
+                tf.isBordered = false
+                tf.drawsBackground = false
+                tf.isSelectable = false
+                tf.lineBreakMode = .byClipping
+                tf.translatesAutoresizingMaskIntoConstraints = false
+                tf.setContentHuggingPriority(.defaultHigh, for: .vertical)
+
+                let cv = NSTableCellView()
+                cv.identifier = cellID
+                cv.textField = tf
+                cv.addSubview(tf)
+
+                NSLayoutConstraint.activate([
+                    tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
+                    tf.bottomAnchor.constraint(lessThanOrEqualTo: cv.bottomAnchor, constant: -2),
+                    tf.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
+                    tf.trailingAnchor.constraint(equalTo: cv.trailingAnchor, constant: -4),
+                ])
+
+                cellView = cv
+                textField = tf
             }
 
             textField.stringValue = String(lineNumber)
             textField.font = font
-            return textField
+            return cellView
         }
 
         private func makeContentCell(tableView: NSTableView, entry: LogEntry, font: NSFont, fontSize: Double) -> NSView {

@@ -98,6 +98,14 @@ Mar 13 18:03:33 [DEBUG] Connection reset by peer
 1774722449 [WARNING] Network packet loss detected
 2026-02-26T18:41:28Z [DEBUG] Error processing request
 Mar 13 18:01:25 [INFO] User authentication failed
+2026-04-13T13:00:15Z [FATAL] Segmentation fault (core dumped)
+Signal: SIGSEGV (signal 11)
+Thread 0 (crashed):
+  0  libsystem_kernel.dylib  0x00007ff8004a3d8e __pthread_kill + 10
+  1  libsystem_pthread.dylib 0x00007ff8004d8f00 pthread_kill + 263
+  2  LogViewer               0x0000000104b23f45 LogParser::parse(data:) + 2341
+  3  LogViewer               0x0000000104b1a890 LogViewModel::openFile(url:) + 1024
+  4  LogViewer               0x0000000104b0f123 ContentView::body.getter + 563
 1774723671 [WARNING] Request completed successfully
 2026-02-26T18:46:36Z [WARNING] Invalid input parameters
 Mar 13 18:42:23 [WARNING] Invalid input parameters
@@ -1998,6 +2006,14 @@ Mar 13 18:12:59 [WARNING] Scheduled job executed
 2026-02-26T18:28:29Z [DEBUG] Transaction committed
 Mar 13 18:33:34 [DEBUG] Scheduled job executed
 1774723150 [DEBUG] Network packet loss detected
+2026-04-13T12:45:00Z [ERROR] Panic in goroutine: runtime error: index out of range [5] with length 3
+goroutine 42 [running]:
+main.processEvents(0xc0001a4000, 0x3, 0x5)
+	/app/cmd/processor/main.go:156 +0x1a4
+main.(*EventWorker).Run(0xc000194000)
+	/app/cmd/processor/worker.go:89 +0xf8
+created by main.startWorkers
+	/app/cmd/processor/main.go:42 +0x94
 2026-02-26T18:27:58Z [INFO] Background task failed
 Mar 13 18:09:02 [INFO] Connection reset by peer
 1774724120 [DEBUG] User authentication failed
@@ -4998,6 +5014,22 @@ Mar 13 18:38:00 [INFO] Error processing request
 2026-02-26T18:39:04Z [INFO] Background task failed
 Mar 13 18:13:36 [INFO] Network packet loss detected
 1774723168 [WARNING] Database connection timeout
+2026-04-13T12:30:45Z [ERROR] Unhandled exception in worker thread
+Traceback (most recent call last):
+  File "/app/workers/batch_processor.py", line 234, in process_batch
+    result = transform(record)
+  File "/app/transforms/normalize.py", line 89, in transform
+    value = record['metrics']['cpu_usage']
+KeyError: 'cpu_usage'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/workers/batch_processor.py", line 241, in process_batch
+    handle_error(record, e)
+  File "/app/workers/error_handler.py", line 56, in handle_error
+    raise RetryableError(f"Failed processing record {record['id']}")
+RetryableError: Failed processing record 98234
 2026-02-26T18:53:21Z [WARNING] Network packet loss detected
 Mar 13 18:44:30 [DEBUG] Disk space running low
 1774723059 [INFO] Request completed successfully
@@ -7498,6 +7530,14 @@ Mar 13 18:41:42 [DEBUG] Request completed successfully
 Mar 13 18:28:32 [DEBUG] Memory usage exceeded threshold
 1774723608 [INFO] User authentication failed
 2026-02-26T18:44:49Z [INFO] Disk space running low
+2026-04-13T12:15:30Z [ERROR] NullPointerException in UserService
+java.lang.NullPointerException
+	at com.example.user.UserService.getProfile(UserService.java:142)
+	at com.example.api.UserController.handleGet(UserController.java:67)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:897)
+Caused by: java.sql.SQLException: Connection refused
+	at com.mysql.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:800)
+	at com.mysql.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:407)
 Mar 13 18:54:07 [DEBUG] Connection reset by peer
 1774721749 [DEBUG] Cache invalidated
 2026-02-26T18:18:20Z [DEBUG] Request completed successfully
@@ -9498,6 +9538,13 @@ Mar 13 18:51:05 [INFO] Disk space running low
 2026-02-26T18:07:45Z [DEBUG] Cache invalidated
 Mar 13 18:13:59 [DEBUG] Disk space running low
 1774721128 [WARNING] Error processing request
+2026-04-13T12:00:01Z [FATAL] OutOfMemoryError: Java heap space
+java.lang.OutOfMemoryError: Java heap space
+	at com.example.cache.LRUCache.put(LRUCache.java:89)
+	at com.example.service.DataService.processRequest(DataService.java:234)
+	at com.example.handler.RequestHandler.handle(RequestHandler.java:56)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:379)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:919)
 2026-02-26T17:58:00Z [ERROR] Request completed successfully
 Mar 13 18:35:36 [WARNING] Invalid input parameters
 1774721880 [INFO] Connection reset by peer
