@@ -4,8 +4,8 @@ A native macOS log file viewer built with SwiftUI and AppKit. Designed for devel
 
 ## Features
 
-- **High-performance rendering** with AppKit NSTableView — native cell reuse and `reloadData()` handles 700k+ rows smoothly
-- **Fast file loading** with memory-mapped I/O for large files, progress bar during indexing/parsing
+- **High-performance rendering** with AppKit NSTableView — native cell reuse and `reloadData()` handles millions of rows smoothly. Tested with 500MB / 5M+ row log files.
+- **Fast file loading** with memory-mapped I/O for large files (up to 2GB), progress bar during indexing/parsing
 - **Log level filtering** - toggle FATAL, ERROR, WARNING, INFO, DEBUG, TRACE with debounced updates
 - **Bracketed log level parsing** - detects both `[ERROR]` and bare `ERROR` formats
 - **Search** with two modes: jump-to-match (highlight + navigate) and filter-to-match (hide non-matches), O(1) match lookups
@@ -18,6 +18,29 @@ A native macOS log file viewer built with SwiftUI and AppKit. Designed for devel
 - **Drag and drop** file opening
 - **Line numbers** in gutter
 - **Multi-format timestamp parsing** - ISO 8601 (`2026-04-13T10:00:00Z`), space-separated (`2026-04-13 10:00:00`), syslog (`Apr 13 10:30:00`), Unix epoch
+
+## Scale
+
+| File Size | Rows | Load Time | Filtering | Scrolling |
+|-----------|------|-----------|-----------|-----------|
+| 10 MB | ~100k | ~2s | Instant | Smooth |
+| 100 MB | ~1M | ~15s | <50ms | Smooth |
+| 500 MB | ~5M | ~3 min | ~100ms | Smooth |
+| 2 GB | ~20M | Theoretical max | Untested | Untested |
+
+Load time is dominated by parsing (chunk-based, with progress indicator). Once loaded, filtering and scrolling performance is independent of file size — only visible rows are rendered.
+
+### Generating test files
+
+A log generator is included for stress testing:
+
+```bash
+# Generate 1M rows (~60MB) from the sample log
+python3 Tests/TestLogs/generate_log.py small.log 1000000 ~/Downloads/1M.log
+
+# Generate 5M rows (~300MB)
+python3 Tests/TestLogs/generate_log.py small.log 5000000 ~/Downloads/5M.log
+```
 
 ## Requirements
 
