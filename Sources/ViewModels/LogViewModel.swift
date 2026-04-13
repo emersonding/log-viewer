@@ -70,6 +70,9 @@ final class LogViewModel {
     /// Current search task (for cancellation)
     private var searchTask: Task<Void, Never>? = nil
 
+    /// Debounce delay for filter application (ms)
+    private let filterDebounceNs: UInt64 = 50_000_000 // 50ms
+
     /// File watcher for auto-refresh
     private let fileWatcher = FileWatcher()
 
@@ -201,30 +204,32 @@ final class LogViewModel {
         isLoading = false
     }
 
-    /// Apply current filters to populate displayedEntries
+    /// Apply current filters to populate displayedEntries.
+    /// For large datasets, debounces rapid calls (e.g. toggling multiple filters quickly)
+    /// and runs filtering on a background thread.
     func applyFilters() {
         // Cancel any in-flight filter task
         filterTask?.cancel()
 
-        // For large datasets, run filtering in background
+        // For large datasets, debounce + run in background
         if allEntries.count > backgroundTaskThreshold {
             filterTask = Task {
+                // Debounce: wait briefly so rapid toggles coalesce into one filter pass
+                try? await Task.sleep(nanoseconds: filterDebounceNs)
+                guard !Task.isCancelled else { return }
+
                 let filtered = await performFiltering()
                 if !Task.isCancelled {
-                    await MainActor.run {
-                        self.displayedEntries = filtered
-                        print("🎯 Filters applied (async): \(filtered.count) entries displayed (from \(self.allEntries.count) total)")
-                        // Update search matches if in jump mode
-                        if self.searchState.mode == .jumpToMatch && !self.searchState.query.isEmpty {
-                            self.updateSearchMatchesInBackground()
-                        }
+                    self.displayedEntries = filtered
+                    // Update search matches if in jump mode
+                    if self.searchState.mode == .jumpToMatch && !self.searchState.query.isEmpty {
+                        self.updateSearchMatchesInBackground()
                     }
                 }
             }
         } else {
             // For small datasets, filter synchronously
             displayedEntries = performFilteringSynchronous()
-            print("🎯 Filters applied: \(displayedEntries.count) entries displayed (from \(allEntries.count) total)")
             // Update search matches for jump mode
             if searchState.mode == .jumpToMatch && !searchState.query.isEmpty {
                 let regex = try? createSearchRegex(query: searchState.query, caseSensitive: searchState.isCaseSensitive)
@@ -260,7 +265,8 @@ final class LogViewModel {
         }
     }
 
-    /// Perform filtering on background thread (async)
+    /// Perform filtering on background thread (async).
+    /// Applies all three filter dimensions in a single pass for efficiency.
     private func performFiltering() async -> [LogEntry] {
         let entries = allEntries
         let levels = filterState.enabledLevels
@@ -271,91 +277,58 @@ final class LogViewModel {
         let caseSensitive = searchState.isCaseSensitive
 
         return await Task.detached {
-            var filtered = entries
+            let regex: NSRegularExpression? = (!query.isEmpty && mode == .filterToMatch)
+                ? (try? self.createSearchRegex(query: query, caseSensitive: caseSensitive))
+                : nil
 
-            // Apply log level filter
-            filtered = filtered.filter { entry in
-                // Entries with nil level are always shown
-                guard let level = entry.level else { return true }
-                return levels.contains(level)
-            }
-
-            // Apply time range filter
-            if let startTime = startTime {
-                filtered = filtered.filter { entry in
-                    // Entries with nil timestamp shown by default
-                    guard let timestamp = entry.timestamp else { return true }
-                    return timestamp >= startTime
+            // Single-pass filter: evaluate all conditions per entry instead of
+            // chaining multiple .filter() calls that create intermediate arrays.
+            return entries.filter { entry in
+                // Log level filter
+                if let level = entry.level, !levels.contains(level) {
+                    return false
                 }
-            }
-
-            if let endTime = endTime {
-                filtered = filtered.filter { entry in
-                    // Entries with nil timestamp shown by default
-                    guard let timestamp = entry.timestamp else { return true }
-                    return timestamp <= endTime
+                // Time range filter
+                if let startTime = startTime, let ts = entry.timestamp, ts < startTime {
+                    return false
                 }
-            }
-
-            // Apply search filter
-            if !query.isEmpty {
-                let regex = try? self.createSearchRegex(query: query, caseSensitive: caseSensitive)
-
-                if mode == .filterToMatch {
-                    // Filter mode: exclude non-matching entries
-                    filtered = filtered.filter { entry in
-                        self.entryMatches(entry, regex: regex)
-                    }
+                if let endTime = endTime, let ts = entry.timestamp, ts > endTime {
+                    return false
                 }
-                // Note: Jump mode matching is handled separately in updateSearchMatches()
+                // Search filter (only in filterToMatch mode)
+                if let regex = regex {
+                    return self.entryMatches(entry, regex: regex)
+                }
+                return true
             }
-
-            return filtered
         }.value
     }
 
-    /// Perform filtering synchronously (main thread)
+    /// Perform filtering synchronously (main thread).
+    /// Single-pass filter for efficiency — no intermediate arrays.
     private func performFilteringSynchronous() -> [LogEntry] {
-        var filtered = allEntries
+        let levels = filterState.enabledLevels
+        let startTime = filterState.timeRangeStart
+        let endTime = filterState.timeRangeEnd
+        let regex: NSRegularExpression? = (!searchState.query.isEmpty && searchState.mode == .filterToMatch)
+            ? (try? createSearchRegex(query: searchState.query, caseSensitive: searchState.isCaseSensitive))
+            : nil
 
-        // Apply log level filter
-        filtered = filtered.filter { entry in
-            // Entries with nil level are always shown
-            guard let level = entry.level else { return true }
-            return filterState.enabledLevels.contains(level)
-        }
-
-        // Apply time range filter
-        if let startTime = filterState.timeRangeStart {
-            filtered = filtered.filter { entry in
-                // Entries with nil timestamp shown by default
-                guard let timestamp = entry.timestamp else { return true }
-                return timestamp >= startTime
+        return allEntries.filter { entry in
+            if let level = entry.level, !levels.contains(level) {
+                return false
             }
-        }
-
-        if let endTime = filterState.timeRangeEnd {
-            filtered = filtered.filter { entry in
-                // Entries with nil timestamp shown by default
-                guard let timestamp = entry.timestamp else { return true }
-                return timestamp <= endTime
+            if let startTime = startTime, let ts = entry.timestamp, ts < startTime {
+                return false
             }
-        }
-
-        // Apply search filter
-        if !searchState.query.isEmpty {
-            let regex = try? createSearchRegex(query: searchState.query, caseSensitive: searchState.isCaseSensitive)
-
-            if searchState.mode == .filterToMatch {
-                // Filter mode: exclude non-matching entries
-                filtered = filtered.filter { entry in
-                    entryMatches(entry, regex: regex)
-                }
+            if let endTime = endTime, let ts = entry.timestamp, ts > endTime {
+                return false
             }
-            // Note: Jump mode matching is handled in performSearchInBackground()
+            if let regex = regex {
+                return entryMatches(entry, regex: regex)
+            }
+            return true
         }
-
-        return filtered
     }
 
     /// Create a search regex with escaped pattern for plain-text search

@@ -25,7 +25,7 @@ struct LogLineView: View {
     private static let highlighter = SyntaxHighlighter()
 
     var body: some View {
-        HStack(alignment: .top, spacing: gutterPadding) {
+        HStack(alignment: .center, spacing: gutterPadding) {
             // Line number gutter
             Text(String(entry.lineNumber))
                 .font(.system(size: fontSize, design: .monospaced))
@@ -34,10 +34,11 @@ struct LogLineView: View {
                 .padding(.trailing, gutterPadding)
                 .accessibilityLabel("Line \(entry.lineNumber)")
 
-            // Log content with syntax highlighting
+            // Log content with syntax highlighting (on-demand — only computed when this view is rendered)
             logContentView
                 .font(.system(size: fontSize, design: .monospaced))
-                .textSelection(.enabled) // Enable text selection for Cmd+C
+                .lineLimit(1)
+                .textSelection(.enabled)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
