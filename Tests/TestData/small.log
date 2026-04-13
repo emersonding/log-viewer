@@ -1,0 +1,5 @@
+2026-04-13T10:00:00Z INFO Application started
+2026-04-13T10:00:01Z DEBUG Loading configuration
+2026-04-13T10:00:02Z ERROR Failed to connect to database
+2026-04-13T10:00:03Z WARNING Retrying connection
+2026-04-13T10:00:04Z INFO Connected successfully

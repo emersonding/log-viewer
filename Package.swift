@@ -21,6 +21,13 @@ let package = Package(
             name: "LogViewerTests",
             dependencies: ["LogViewer"],
             path: "Tests"
+        ),
+        // UI Tests target (requires Xcode to run)
+        // To run: open Package.swift in Xcode, then Cmd+U
+        .testTarget(
+            name: "LogViewerUITests",
+            dependencies: [],
+            path: "UITests"
         )
     ]
 )

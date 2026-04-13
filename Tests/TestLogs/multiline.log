@@ -1,0 +1,4 @@
+2026-04-13T10:40:00Z [INFO] Application started
+2026-04-13T10:41:00Z [ERROR] Exception occurred
+Exception: NullPointerException
+  at example.service.Process.execute(Process.swift:42)
