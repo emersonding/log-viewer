@@ -146,7 +146,7 @@ struct LogTableView: View {
 
     // MARK: - Helper Methods
 
-    /// Check if an entry is a search match
+    /// Check if an entry is a search match (O(1) via Set lookup)
     @MainActor
     private func isSearchMatch(_ entry: LogEntry) -> Bool {
         guard viewModel.searchState.mode == .jumpToMatch,
@@ -154,7 +154,7 @@ struct LogTableView: View {
             return false
         }
 
-        return viewModel.searchState.matchingLineIDs.contains(entry.id)
+        return viewModel.searchState.isMatch(entry.id)
     }
 
     /// Check if an entry is the current highlighted match

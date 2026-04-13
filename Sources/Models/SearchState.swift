@@ -18,7 +18,12 @@ struct SearchState: Sendable {
     var query: String
     var mode: SearchMode
     var isCaseSensitive: Bool
-    var matchingLineIDs: [UUID]
+    /// Ordered list of matching IDs (for next/previous navigation)
+    var matchingLineIDs: [UUID] {
+        didSet { _matchingLineIDSet = Set(matchingLineIDs) }
+    }
+    /// Set for O(1) membership checks (kept in sync with matchingLineIDs)
+    private(set) var _matchingLineIDSet: Set<UUID> = []
     var currentMatchIndex: Int
 
     init(
@@ -32,6 +37,7 @@ struct SearchState: Sendable {
         self.mode = mode
         self.isCaseSensitive = isCaseSensitive
         self.matchingLineIDs = matchingLineIDs
+        self._matchingLineIDSet = Set(matchingLineIDs)
         self.currentMatchIndex = currentMatchIndex
     }
 
@@ -43,5 +49,10 @@ struct SearchState: Sendable {
     /// Returns the total number of matches
     var matchCount: Int {
         return matchingLineIDs.count
+    }
+
+    /// O(1) check if an ID is a search match
+    func isMatch(_ id: UUID) -> Bool {
+        return _matchingLineIDSet.contains(id)
     }
 }

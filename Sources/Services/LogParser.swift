@@ -19,7 +19,7 @@ actor LogParser {
     private let isoTimestampRegex = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}"#)
     private let syslogTimestampRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#)
     private let epochTimestampRegex = try! NSRegularExpression(pattern: #"^\d{10,13}(\.\d+)?"#)
-    private let logLevelRegex = try! NSRegularExpression(pattern: #"^(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\b"#, options: .caseInsensitive)
+    private let logLevelRegex = try! NSRegularExpression(pattern: #"^\[?(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]?"#, options: .caseInsensitive)
     private let isoExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)"#)
     private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)"#)
     private let syslogExtractRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})"#)
@@ -450,19 +450,22 @@ actor LogParser {
         return nil
     }
 
-    /// Extract log level from the beginning of a string
+    /// Extract log level from the beginning of a string.
+    /// Handles both bare keywords (ERROR) and bracketed ([ERROR]) formats.
     private func extractLogLevel(_ line: inout String) -> LogLevel? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         let nsRange = NSRange(trimmed.startIndex..., in: trimmed)
 
         guard let match = logLevelRegex.firstMatch(in: trimmed, range: nsRange),
-              let range = Range(match.range, in: trimmed) else {
+              let fullRange = Range(match.range, in: trimmed),
+              let keywordNSRange = Range(match.range(at: 1), in: trimmed) else {
             // No log level found, leave line as-is
             line = trimmed
             return nil
         }
 
-        let keyword = trimmed[range].uppercased()
+        // Use capture group 1 (the keyword without brackets) for level lookup
+        let keyword = String(trimmed[keywordNSRange]).uppercased()
 
         // Map of keywords to log levels (including aliases)
         let levelMap: [String: LogLevel] = [
@@ -477,7 +480,8 @@ actor LogParser {
         ]
 
         let level = levelMap[keyword]
-        line = String(trimmed[range.upperBound...])
+        // Consume the full match (including brackets) from the remaining line
+        line = String(trimmed[fullRange.upperBound...])
         return level
     }
 }
