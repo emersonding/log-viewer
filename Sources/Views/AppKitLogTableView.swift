@@ -39,7 +39,7 @@ struct AppKitLogTableView: NSViewRepresentable {
         tableView.headerView = nil // No header row
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
         tableView.gridStyleMask = []
-        tableView.usesAutomaticRowHeights = false
+        tableView.usesAutomaticRowHeights = true
         tableView.rowHeight = context.coordinator.computeRowHeight(fontSize: viewModel.settingsState.fontSize)
 
         // Line number column
@@ -209,9 +209,9 @@ struct AppKitLogTableView: NSViewRepresentable {
                 textField.isBordered = false
                 textField.drawsBackground = false
                 textField.isSelectable = true
-                textField.lineBreakMode = .byClipping
-                textField.cell?.truncatesLastVisibleLine = true
-                textField.maximumNumberOfLines = 1
+                textField.lineBreakMode = .byWordWrapping
+                textField.cell?.wraps = true
+                textField.maximumNumberOfLines = 0
             }
 
             // Get syntax-highlighted NSAttributedString
