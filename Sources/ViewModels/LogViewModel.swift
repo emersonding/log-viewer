@@ -8,6 +8,14 @@
 import Foundation
 import Observation
 
+// MARK: - Sort Order
+
+enum TimestampSortOrder {
+    case original   // file order
+    case ascending  // oldest first
+    case descending // newest first
+}
+
 /// Main view model for the log viewer application
 @Observable
 @MainActor
@@ -49,6 +57,9 @@ final class LogViewModel {
 
     /// User scroll position at bottom (for auto-scroll decision)
     var isScrolledToBottom: Bool = true
+
+    /// Current sort order for timestamp column
+    var timestampSortOrder: TimestampSortOrder = .original
 
     /// Counter that increments on each applyFilters() call.
     /// Used by AppKitLogTableView to detect when to reload data.
@@ -222,8 +233,11 @@ final class LogViewModel {
                 try? await Task.sleep(nanoseconds: filterDebounceNs)
                 guard !Task.isCancelled else { return }
 
-                let filtered = await performFiltering()
+                var filtered = await performFiltering()
                 if !Task.isCancelled {
+                    if self.timestampSortOrder != .original {
+                        filtered = self.sortByTimestamp(filtered, ascending: self.timestampSortOrder == .ascending)
+                    }
                     self.displayedEntries = filtered
                     self.filterChangeCounter += 1
                     // Update search matches if in jump mode
@@ -234,7 +248,11 @@ final class LogViewModel {
             }
         } else {
             // For small datasets, filter synchronously
-            displayedEntries = performFilteringSynchronous()
+            var filtered = performFilteringSynchronous()
+            if timestampSortOrder != .original {
+                filtered = sortByTimestamp(filtered, ascending: timestampSortOrder == .ascending)
+            }
+            displayedEntries = filtered
             filterChangeCounter += 1
             // Update search matches for jump mode
             if searchState.mode == .jumpToMatch && !searchState.query.isEmpty {
@@ -595,6 +613,56 @@ final class LogViewModel {
         } else {
             stopAutoRefreshTimer()
         }
+    }
+
+    /// Toggle timestamp sort order and re-apply filters
+    func toggleTimestampSort() {
+        switch timestampSortOrder {
+        case .original:
+            timestampSortOrder = .ascending
+        case .ascending:
+            timestampSortOrder = .descending
+        case .descending:
+            timestampSortOrder = .original
+        }
+        applyFilters()
+    }
+
+    /// Sort entries by timestamp, keeping nil-timestamp entries grouped with
+    /// their nearest preceding timestamped entry (ELK-style).
+    private func sortByTimestamp(_ entries: [LogEntry], ascending: Bool) -> [LogEntry] {
+        // Group entries into blocks: each block starts with a timestamped entry
+        // followed by zero or more nil-timestamp continuation entries.
+        var blocks: [(timestamp: Date?, entries: [LogEntry])] = []
+        var currentBlock: [LogEntry] = []
+        var currentTimestamp: Date? = nil
+
+        for entry in entries {
+            if entry.timestamp != nil {
+                // Flush previous block
+                if !currentBlock.isEmpty {
+                    blocks.append((timestamp: currentTimestamp, entries: currentBlock))
+                }
+                currentBlock = [entry]
+                currentTimestamp = entry.timestamp
+            } else {
+                // Continuation line — stays with current block
+                currentBlock.append(entry)
+            }
+        }
+        // Flush last block
+        if !currentBlock.isEmpty {
+            blocks.append((timestamp: currentTimestamp, entries: currentBlock))
+        }
+
+        // Sort blocks by timestamp; nil-timestamp blocks go to the end
+        let sorted = blocks.sorted { a, b in
+            guard let ta = a.timestamp else { return false }
+            guard let tb = b.timestamp else { return true }
+            return ascending ? ta < tb : ta > tb
+        }
+
+        return sorted.flatMap { $0.entries }
     }
 }
 

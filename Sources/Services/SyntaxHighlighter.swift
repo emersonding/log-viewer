@@ -140,6 +140,38 @@ final class SyntaxHighlighter {
         return immutable
     }
 
+    /// Highlight only the message portion of a log entry for the content column.
+    ///
+    /// Since timestamp and level are in separate columns, this only applies
+    /// quoted-string highlighting — skipping timestamp/level regex passes entirely.
+    func highlightMessageNS(_ entry: LogEntry, fontSize: Double) -> NSAttributedString {
+        let nsCacheKey = ("msg:" + entry.id.uuidString) as NSString
+
+        if let cached = cache.object(forKey: nsCacheKey) {
+            return cached
+        }
+
+        let message = entry.message
+        let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        let result = NSMutableAttributedString(
+            string: message,
+            attributes: [.font: font, .foregroundColor: NSColor.labelColor]
+        )
+
+        // Only quoted string highlighting needed
+        if let regex = quotedStringRegex {
+            let fullRange = NSRange(message.startIndex..., in: message)
+            let matches = regex.matches(in: message, range: fullRange)
+            for match in matches {
+                result.addAttribute(.foregroundColor, value: NSColor.systemTeal, range: match.range)
+            }
+        }
+
+        let immutable = result.copy() as! NSAttributedString
+        cache.setObject(immutable, forKey: nsCacheKey)
+        return immutable
+    }
+
     // MARK: - Private Highlighting Methods
 
     private func highlightTimestamp(in attributedString: inout AttributedString, rawLine: String) {

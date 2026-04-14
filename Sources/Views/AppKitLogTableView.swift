@@ -17,9 +17,13 @@ struct AppKitLogTableView: NSViewRepresentable {
 
     // Column identifiers
     private static let lineNumberColumnID = NSUserInterfaceItemIdentifier("lineNumber")
+    private static let levelColumnID = NSUserInterfaceItemIdentifier("level")
+    private static let timestampColumnID = NSUserInterfaceItemIdentifier("timestamp")
     private static let contentColumnID = NSUserInterfaceItemIdentifier("content")
     private static let cellID = NSUserInterfaceItemIdentifier("LogCell")
     private static let lineNumberCellID = NSUserInterfaceItemIdentifier("LineNumberCell")
+    private static let levelCellID = NSUserInterfaceItemIdentifier("LevelCell")
+    private static let timestampCellID = NSUserInterfaceItemIdentifier("TimestampCell")
 
     func makeCoordinator() -> Coordinator {
         Coordinator(viewModel: viewModel)
@@ -36,7 +40,6 @@ struct AppKitLogTableView: NSViewRepresentable {
         tableView.style = .plain
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsMultipleSelection = false
-        tableView.headerView = nil // No header row
         tableView.intercellSpacing = NSSize(width: 4, height: 0)
         tableView.gridStyleMask = []
         tableView.usesAutomaticRowHeights = true
@@ -45,19 +48,37 @@ struct AppKitLogTableView: NSViewRepresentable {
 
         // Line number column
         let lineNumberColumn = NSTableColumn(identifier: Self.lineNumberColumnID)
-        lineNumberColumn.title = ""
+        lineNumberColumn.title = "#"
         lineNumberColumn.width = 60
         lineNumberColumn.minWidth = 40
         lineNumberColumn.maxWidth = 80
         lineNumberColumn.isEditable = false
         tableView.addTableColumn(lineNumberColumn)
 
-        // Content column
+        // Log level column
+        let levelColumn = NSTableColumn(identifier: Self.levelColumnID)
+        levelColumn.title = "Level"
+        levelColumn.width = 90
+        levelColumn.minWidth = 70
+        levelColumn.maxWidth = 110
+        levelColumn.isEditable = false
+        tableView.addTableColumn(levelColumn)
+
+        // Timestamp column (sortable)
+        let timestampColumn = NSTableColumn(identifier: Self.timestampColumnID)
+        timestampColumn.title = "Timestamp"
+        timestampColumn.width = 160
+        timestampColumn.minWidth = 120
+        timestampColumn.maxWidth = 200
+        timestampColumn.isEditable = false
+        timestampColumn.sortDescriptorPrototype = NSSortDescriptor(key: "timestamp", ascending: true)
+        tableView.addTableColumn(timestampColumn)
+
+        // Content column (message only)
         let contentColumn = NSTableColumn(identifier: Self.contentColumnID)
-        contentColumn.title = ""
+        contentColumn.title = "Message"
         contentColumn.minWidth = 200
         contentColumn.isEditable = false
-        // Allow the content column to stretch
         contentColumn.resizingMask = .autoresizingMask
         tableView.addTableColumn(contentColumn)
 
@@ -91,10 +112,13 @@ struct AppKitLogTableView: NSViewRepresentable {
         if coordinator.lastFilterChangeCounter != currentCounter {
             coordinator.lastFilterChangeCounter = currentCounter
 
-            // Widen content column to fit scroll view width
+            // Widen content column to fill remaining space
             if let contentColumn = tableView.tableColumn(withIdentifier: Self.contentColumnID) {
                 let lineNumWidth = tableView.tableColumn(withIdentifier: Self.lineNumberColumnID)?.width ?? 60
-                let availableWidth = scrollView.frame.width - lineNumWidth - 4
+                let levelWidth = tableView.tableColumn(withIdentifier: Self.levelColumnID)?.width ?? 90
+                let timestampWidth = tableView.tableColumn(withIdentifier: Self.timestampColumnID)?.width ?? 160
+                let fixedColumnsWidth = lineNumWidth + levelWidth + timestampWidth + 16 // intercell spacing
+                let availableWidth = scrollView.frame.width - fixedColumnsWidth
                 if availableWidth > contentColumn.minWidth {
                     contentColumn.width = availableWidth
                 }
@@ -144,15 +168,28 @@ struct AppKitLogTableView: NSViewRepresentable {
 
         // MARK: - NSTableViewDelegate
 
+        // Shared timestamp formatter — created once, reused for all rows
+        private let timestampFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            f.locale = Locale(identifier: "en_US_POSIX")
+            return f
+        }()
+
         func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
             guard row < viewModel.displayedEntries.count else { return nil }
             let entry = viewModel.displayedEntries[row]
             let fontSize = viewModel.settingsState.fontSize
             let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
 
-            if tableColumn?.identifier == AppKitLogTableView.lineNumberColumnID {
+            switch tableColumn?.identifier {
+            case AppKitLogTableView.lineNumberColumnID:
                 return makeLineNumberCell(tableView: tableView, lineNumber: entry.lineNumber, font: font)
-            } else {
+            case AppKitLogTableView.levelColumnID:
+                return makeLevelCell(tableView: tableView, level: entry.level, fontSize: fontSize)
+            case AppKitLogTableView.timestampColumnID:
+                return makeTimestampCell(tableView: tableView, timestamp: entry.timestamp, font: font)
+            default:
                 return makeContentCell(tableView: tableView, entry: entry, font: font, fontSize: fontSize)
             }
         }
@@ -164,6 +201,12 @@ struct AppKitLogTableView: NSViewRepresentable {
             let rowView = LogTableRowView()
             rowView.entryBackgroundColor = backgroundColor(for: entry)
             return rowView
+        }
+
+        // MARK: - Sorting
+
+        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            viewModel.toggleTimestampSort()
         }
 
         // MARK: - Cell Construction
@@ -210,6 +253,107 @@ struct AppKitLogTableView: NSViewRepresentable {
             return cellView
         }
 
+        private func makeLevelCell(tableView: NSTableView, level: LogLevel?, fontSize: Double) -> NSView {
+            let cellID = AppKitLogTableView.levelCellID
+            let cellView: NSTableCellView
+            let textField: NSTextField
+
+            if let reused = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView,
+               let existingTF = reused.textField {
+                cellView = reused
+                textField = existingTF
+            } else {
+                let tf = NSTextField(labelWithString: "")
+                tf.isEditable = false
+                tf.isBordered = false
+                tf.drawsBackground = false
+                tf.isSelectable = false
+                tf.lineBreakMode = .byClipping
+                tf.alignment = .left
+                tf.translatesAutoresizingMaskIntoConstraints = false
+
+                let cv = NSTableCellView()
+                cv.identifier = cellID
+                cv.textField = tf
+                cv.addSubview(tf)
+
+                NSLayoutConstraint.activate([
+                    tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
+                    tf.bottomAnchor.constraint(lessThanOrEqualTo: cv.bottomAnchor, constant: -2),
+                    tf.leadingAnchor.constraint(equalTo: cv.leadingAnchor, constant: 4),
+                    tf.trailingAnchor.constraint(equalTo: cv.trailingAnchor, constant: -4),
+                ])
+
+                cellView = cv
+                textField = tf
+            }
+
+            if let level = level {
+                let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+                textField.stringValue = level.rawValue
+                textField.font = font
+                textField.textColor = level.nsColor
+
+                if level == .fatal {
+                    textField.textColor = .white
+                    textField.backgroundColor = .systemRed
+                    textField.drawsBackground = true
+                } else {
+                    textField.drawsBackground = false
+                }
+            } else {
+                textField.stringValue = ""
+                textField.drawsBackground = false
+            }
+
+            return cellView
+        }
+
+        private func makeTimestampCell(tableView: NSTableView, timestamp: Date?, font: NSFont) -> NSView {
+            let cellID = AppKitLogTableView.timestampCellID
+            let cellView: NSTableCellView
+            let textField: NSTextField
+
+            if let reused = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView,
+               let existingTF = reused.textField {
+                cellView = reused
+                textField = existingTF
+            } else {
+                let tf = NSTextField(labelWithString: "")
+                tf.isEditable = false
+                tf.isBordered = false
+                tf.drawsBackground = false
+                tf.isSelectable = false
+                tf.lineBreakMode = .byClipping
+                tf.textColor = .secondaryLabelColor
+                tf.translatesAutoresizingMaskIntoConstraints = false
+
+                let cv = NSTableCellView()
+                cv.identifier = cellID
+                cv.textField = tf
+                cv.addSubview(tf)
+
+                NSLayoutConstraint.activate([
+                    tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
+                    tf.bottomAnchor.constraint(lessThanOrEqualTo: cv.bottomAnchor, constant: -2),
+                    tf.leadingAnchor.constraint(equalTo: cv.leadingAnchor, constant: 4),
+                    tf.trailingAnchor.constraint(equalTo: cv.trailingAnchor, constant: -4),
+                ])
+
+                cellView = cv
+                textField = tf
+            }
+
+            if let timestamp = timestamp {
+                textField.stringValue = timestampFormatter.string(from: timestamp)
+            } else {
+                textField.stringValue = ""
+            }
+            textField.font = font
+
+            return cellView
+        }
+
         private func makeContentCell(tableView: NSTableView, entry: LogEntry, font: NSFont, fontSize: Double) -> NSView {
             let cellID = AppKitLogTableView.cellID
             let cellView: NSTableCellView
@@ -249,13 +393,13 @@ struct AppKitLogTableView: NSViewRepresentable {
             let contentColumnWidth = tableView.tableColumn(withIdentifier: AppKitLogTableView.contentColumnID)?.width ?? 600
             textField.preferredMaxLayoutWidth = contentColumnWidth - 8 // minus padding
 
-            // Get syntax-highlighted NSAttributedString
-            let attributed = highlighter.highlightNS(entry, fontSize: fontSize)
+            // Highlight message only (quoted strings + search)
+            let attributed = highlighter.highlightMessageNS(entry, fontSize: fontSize)
 
             // Apply search highlighting on top if needed
             if isSearchMatch(entry) && !viewModel.searchState.query.isEmpty {
                 let mutable = NSMutableAttributedString(attributedString: attributed)
-                applySearchHighlight(to: mutable, entry: entry)
+                applySearchHighlight(to: mutable, entry: entry, text: entry.message)
                 textField.attributedStringValue = mutable
             } else {
                 textField.attributedStringValue = attributed
@@ -288,15 +432,15 @@ struct AppKitLogTableView: NSViewRepresentable {
             return .clear
         }
 
-        private func applySearchHighlight(to mutable: NSMutableAttributedString, entry: LogEntry) {
+        private func applySearchHighlight(to mutable: NSMutableAttributedString, entry: LogEntry, text: String? = nil) {
             let query = viewModel.searchState.query
             let escapedPattern = NSRegularExpression.escapedPattern(for: query)
             let options: NSRegularExpression.Options = viewModel.searchState.isCaseSensitive ? [] : [.caseInsensitive]
 
             guard let regex = try? NSRegularExpression(pattern: escapedPattern, options: options) else { return }
 
-            let rawLine = entry.rawLine
-            let matches = regex.matches(in: rawLine, range: NSRange(rawLine.startIndex..., in: rawLine))
+            let searchText = text ?? entry.rawLine
+            let matches = regex.matches(in: searchText, range: NSRange(searchText.startIndex..., in: searchText))
 
             let bgColor: NSColor = isCurrentMatch(entry)
                 ? NSColor.orange.withAlphaComponent(0.5)

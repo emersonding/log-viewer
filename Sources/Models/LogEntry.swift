@@ -5,6 +5,7 @@
 //  Created on 2026-04-13.
 //
 
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -83,6 +84,30 @@ enum LogLevel: String, CaseIterable, Sendable {
             return .white
         default:
             return color
+        }
+    }
+
+    /// SF Symbol icon name for this log level
+    var iconName: String {
+        switch self {
+        case .fatal: return "xmark.octagon.fill"
+        case .error: return "exclamationmark.triangle.fill"
+        case .warning: return "exclamationmark.triangle"
+        case .info: return "info.circle"
+        case .debug: return "ant"
+        case .trace: return "line.3.horizontal"
+        }
+    }
+
+    /// NSColor for AppKit rendering
+    var nsColor: NSColor {
+        switch self {
+        case .fatal: return .systemRed
+        case .error: return .systemRed
+        case .warning: return .systemOrange
+        case .info: return .controlAccentColor
+        case .debug: return .systemGray
+        case .trace: return .systemGray
         }
     }
 }
