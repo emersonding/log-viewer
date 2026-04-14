@@ -63,41 +63,46 @@ python3 Tests/TestLogs/generate_log.py small.log 5000000 ~/Downloads/5M.log
 
 ## Installation
 
-### Option 1: Download pre-built release
-
-Download `Lumen.app.zip` from the [Releases](../../releases) page, unzip, and drag to `/Applications`.
-
-> **Note:** The app is ad-hoc signed. On first launch, macOS may block it. Go to **System Settings > Privacy & Security** and click **Open Anyway**.
-
-### Option 2: Build from source
-
-Requires macOS 14.0+, Swift 5.9+.
+### Option 1: Homebrew (recommended)
 
 ```bash
-# Clone and build
+brew install emersonding/tap/lumen
+```
+
+This installs the `lumen` CLI and `Lumen.app`. To add it to your Applications folder:
+
+```bash
+sudo ln -sf $(brew --prefix)/opt/lumen/Lumen.app /Applications/Lumen.app
+```
+
+### Option 2: Download pre-built release
+
+Download the release tarball from the [Releases](../../releases) page.
+
+### Option 3: Build from source
+
+Requires macOS 14.0+, Xcode (for SwiftUI/AppKit SDK).
+
+```bash
 git clone https://github.com/emersonding/lumen-log-viewer.git
 cd lumen-log-viewer
 ./build_app.sh
-```
-
-This builds the release binary, creates `build/Lumen.app`, validates the bundle, and runs a smoke test.
-
-```bash
-# Install to Applications
 cp -r build/Lumen.app /Applications/
-
-# Or run directly
-open build/Lumen.app
 ```
+
+> **Note:** The app is ad-hoc signed. On first launch, macOS Gatekeeper may block it. Go to **System Settings > Privacy & Security** and click **Open Anyway**.
 
 ### Usage
 
 ```bash
-# Open with welcome screen
-open /Applications/Lumen.app
+# Launch from terminal
+lumen
 
-# Open with a log file
-open /Applications/Lumen.app --args /path/to/your.log
+# Open a log file directly
+lumen /path/to/your.log
+
+# Or open from Applications
+open /Applications/Lumen.app
 ```
 
 ## Testing
