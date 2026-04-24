@@ -133,6 +133,64 @@ final class LogViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.displayedEntries.first?.level, .error)
     }
 
+    // MARK: - Extracted Field Tests
+
+    func testAddExtractedField() {
+        let before = viewModel.fieldChangeCounter
+
+        viewModel.addExtractedField("request_id")
+
+        XCTAssertEqual(viewModel.extractedFieldNames, ["request_id"])
+        XCTAssertGreaterThan(viewModel.fieldChangeCounter, before)
+    }
+
+    func testAddExtractedFieldRejectsInvalidAndDuplicateNames() {
+        viewModel.addExtractedField("request_id")
+        viewModel.addExtractedField("request_id")
+        viewModel.addExtractedField("bad field")
+        viewModel.addExtractedField("=bad")
+
+        XCTAssertEqual(viewModel.extractedFieldNames, ["request_id"])
+    }
+
+    func testAddExtractedFieldRejectsMoreThanLimit() {
+        for index in 0..<LogViewModel.maxExtractedFields {
+            viewModel.addExtractedField("field_\(index)")
+        }
+
+        let before = viewModel.fieldChangeCounter
+        viewModel.addExtractedField("field_over_limit")
+
+        XCTAssertEqual(viewModel.extractedFieldNames.count, LogViewModel.maxExtractedFields)
+        XCTAssertFalse(viewModel.extractedFieldNames.contains("field_over_limit"))
+        XCTAssertEqual(viewModel.fieldChangeCounter, before)
+    }
+
+    func testExtractedFieldValueSupportsUnquotedAndQuotedValues() {
+        let entry = LogEntry(
+            lineNumber: 1,
+            level: .info,
+            message: #"request_id=abc123 user="Ada Lovelace" path='/api/search' status=200"#,
+            rawLine: #"INFO request_id=abc123 user="Ada Lovelace" path='/api/search' status=200"#
+        )
+
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "request_id", in: entry), "abc123")
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "user", in: entry), "Ada Lovelace")
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "path", in: entry), "/api/search")
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "status", in: entry), "200")
+    }
+
+    func testExtractedFieldValueRequiresExactFieldName() {
+        let entry = LogEntry(
+            lineNumber: 1,
+            level: .info,
+            message: "myfield=wrong field=right",
+            rawLine: "INFO myfield=wrong field=right"
+        )
+
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "field", in: entry), "right")
+    }
+
     func testOpenFileClearsExistingData() async throws {
         // Given: A view model with existing data
         let fileURL1 = testDataDirectory.appendingPathComponent("small.log")

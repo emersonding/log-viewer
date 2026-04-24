@@ -20,10 +20,26 @@ struct AppKitLogTableView: NSViewRepresentable {
     private static let levelColumnID = NSUserInterfaceItemIdentifier("level")
     private static let timestampColumnID = NSUserInterfaceItemIdentifier("timestamp")
     private static let contentColumnID = NSUserInterfaceItemIdentifier("content")
+    private static let extractedFieldColumnPrefix = "field:"
+    private static let extractedFieldColumnWidth: CGFloat = 130
+    private static let contentColumnDefaultWidth: CGFloat = 700
     private static let cellID = NSUserInterfaceItemIdentifier("LogCell")
     private static let lineNumberCellID = NSUserInterfaceItemIdentifier("LineNumberCell")
     private static let levelCellID = NSUserInterfaceItemIdentifier("LevelCell")
     private static let timestampCellID = NSUserInterfaceItemIdentifier("TimestampCell")
+    private static let fieldCellID = NSUserInterfaceItemIdentifier("FieldCell")
+
+    private static func extractedFieldColumnID(_ fieldName: String) -> NSUserInterfaceItemIdentifier {
+        NSUserInterfaceItemIdentifier(extractedFieldColumnPrefix + fieldName)
+    }
+
+    private static func extractedFieldName(from identifier: NSUserInterfaceItemIdentifier?) -> String? {
+        guard let rawValue = identifier?.rawValue,
+              rawValue.hasPrefix(extractedFieldColumnPrefix) else {
+            return nil
+        }
+        return String(rawValue.dropFirst(extractedFieldColumnPrefix.count))
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(viewModel: viewModel)
@@ -42,6 +58,7 @@ struct AppKitLogTableView: NSViewRepresentable {
         tableView.allowsMultipleSelection = false
         tableView.intercellSpacing = NSSize(width: 4, height: 0)
         tableView.gridStyleMask = []
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.usesAutomaticRowHeights = true
         // rowHeight is the estimated height for scroll bar; actual height from Auto Layout
         tableView.rowHeight = 20
@@ -77,9 +94,10 @@ struct AppKitLogTableView: NSViewRepresentable {
         // Content column (message only)
         let contentColumn = NSTableColumn(identifier: Self.contentColumnID)
         contentColumn.title = "Message"
-        contentColumn.minWidth = 200
+        contentColumn.width = Self.contentColumnDefaultWidth
+        contentColumn.minWidth = 1
         contentColumn.isEditable = false
-        contentColumn.resizingMask = .autoresizingMask
+        contentColumn.resizingMask = [.autoresizingMask, .userResizingMask]
         tableView.addTableColumn(contentColumn)
 
         tableView.dataSource = context.coordinator
@@ -110,20 +128,24 @@ struct AppKitLogTableView: NSViewRepresentable {
         // Reload data when filterChangeCounter changes
         let currentCounter = viewModel.filterChangeCounter
         let currentFontSize = viewModel.settingsState.fontSize
-        if coordinator.lastFilterChangeCounter != currentCounter || coordinator.lastFontSize != currentFontSize {
+        let currentFieldNames = viewModel.extractedFieldNames
+        if coordinator.lastFilterChangeCounter != currentCounter ||
+            coordinator.lastFontSize != currentFontSize ||
+            coordinator.lastFieldNames != currentFieldNames {
             coordinator.lastFilterChangeCounter = currentCounter
             coordinator.lastFontSize = currentFontSize
+            coordinator.lastFieldNames = currentFieldNames
             tableView.rowHeight = coordinator.computeRowHeight(fontSize: currentFontSize)
+            coordinator.syncExtractedFieldColumns(tableView: tableView, fieldNames: currentFieldNames)
 
-            // Widen content column to fill remaining space
+            // Keep a useful default message width, but still allow the user to shrink it manually.
             if let contentColumn = tableView.tableColumn(withIdentifier: Self.contentColumnID) {
-                let lineNumWidth = tableView.tableColumn(withIdentifier: Self.lineNumberColumnID)?.width ?? 60
-                let levelWidth = tableView.tableColumn(withIdentifier: Self.levelColumnID)?.width ?? 90
-                let timestampWidth = tableView.tableColumn(withIdentifier: Self.timestampColumnID)?.width ?? 160
-                let fixedColumnsWidth = lineNumWidth + levelWidth + timestampWidth + 16 // intercell spacing
+                let fixedColumnsWidth = tableView.tableColumns
+                    .filter { $0.identifier != Self.contentColumnID }
+                    .reduce(CGFloat(16)) { $0 + $1.width }
                 let availableWidth = scrollView.frame.width - fixedColumnsWidth
-                if availableWidth > contentColumn.minWidth {
-                    contentColumn.width = availableWidth
+                if availableWidth > 0 && contentColumn.width < Self.contentColumnDefaultWidth {
+                    contentColumn.width = max(Self.contentColumnDefaultWidth, availableWidth)
                 }
             }
 
@@ -151,6 +173,7 @@ struct AppKitLogTableView: NSViewRepresentable {
         weak var scrollView: NSScrollView?
         var lastFilterChangeCounter: Int = -1
         var lastFontSize: Double = -1
+        var lastFieldNames: [String] = []
         var lastScrolledMatchID: UUID?
 
         private let highlighter = SyntaxHighlighter()
@@ -194,6 +217,10 @@ struct AppKitLogTableView: NSViewRepresentable {
             case AppKitLogTableView.timestampColumnID:
                 return makeTimestampCell(tableView: tableView, timestamp: entry.timestamp, font: font)
             default:
+                if let fieldName = AppKitLogTableView.extractedFieldName(from: tableColumn?.identifier) {
+                    let value = viewModel.extractedFieldValue(named: fieldName, in: entry)
+                    return makeFieldCell(tableView: tableView, value: value, font: font)
+                }
                 return makeContentCell(tableView: tableView, entry: entry, font: font, fontSize: fontSize)
             }
         }
@@ -213,7 +240,78 @@ struct AppKitLogTableView: NSViewRepresentable {
             viewModel.toggleTimestampSort()
         }
 
+        func tableViewColumnDidResize(_ notification: Notification) {
+            guard let tableView = notification.object as? NSTableView else {
+                return
+            }
+
+            if let resizedColumn = notification.userInfo?["NSTableColumn"] as? NSTableColumn,
+               resizedColumn.identifier != AppKitLogTableView.contentColumnID {
+                return
+            }
+            updateVisibleContentWrapping(tableView: tableView)
+        }
+
         // MARK: - Cell Construction
+
+        private func configureCompressibleTextField(_ textField: NSTextField) {
+            textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        }
+
+        private func enableSubviewClipping(_ view: NSView) {
+            view.wantsLayer = true
+            view.layer?.masksToBounds = true
+        }
+
+        func syncExtractedFieldColumns(tableView: NSTableView, fieldNames: [String]) {
+            let savedDataSource = tableView.dataSource
+            let savedDelegate = tableView.delegate
+
+            tableView.dataSource = nil
+            tableView.delegate = nil
+            tableView.reloadData()
+            tableView.layoutSubtreeIfNeeded()
+
+            let desiredFields = Set(fieldNames)
+            for column in tableView.tableColumns {
+                guard let fieldName = AppKitLogTableView.extractedFieldName(from: column.identifier),
+                      !desiredFields.contains(fieldName) else {
+                    continue
+                }
+                tableView.removeTableColumn(column)
+            }
+
+            for fieldName in fieldNames where tableView.tableColumn(withIdentifier: AppKitLogTableView.extractedFieldColumnID(fieldName)) == nil {
+                let column = NSTableColumn(identifier: AppKitLogTableView.extractedFieldColumnID(fieldName))
+                column.title = fieldName
+                column.width = AppKitLogTableView.extractedFieldColumnWidth
+                column.minWidth = 1
+                column.maxWidth = CGFloat.greatestFiniteMagnitude
+                column.isEditable = false
+                column.resizingMask = .userResizingMask
+                tableView.addTableColumn(column)
+            }
+
+            let desiredColumnIDs = [
+                AppKitLogTableView.lineNumberColumnID,
+                AppKitLogTableView.levelColumnID,
+                AppKitLogTableView.timestampColumnID,
+            ] + fieldNames.map { AppKitLogTableView.extractedFieldColumnID($0) } + [
+                AppKitLogTableView.contentColumnID
+            ]
+
+            for (targetIndex, identifier) in desiredColumnIDs.enumerated() {
+                guard let currentIndex = tableView.tableColumns.firstIndex(where: { $0.identifier == identifier }),
+                      currentIndex != targetIndex else {
+                    continue
+                }
+                tableView.moveColumn(currentIndex, toColumn: targetIndex)
+            }
+
+            tableView.dataSource = savedDataSource
+            tableView.delegate = savedDelegate
+        }
 
         private func makeLineNumberCell(tableView: NSTableView, lineNumber: Int, font: NSFont) -> NSView {
             let cellID = AppKitLogTableView.lineNumberCellID
@@ -235,11 +333,13 @@ struct AppKitLogTableView: NSViewRepresentable {
                 tf.lineBreakMode = .byClipping
                 tf.translatesAutoresizingMaskIntoConstraints = false
                 tf.setContentHuggingPriority(.defaultHigh, for: .vertical)
+                configureCompressibleTextField(tf)
 
                 let cv = NSTableCellView()
                 cv.identifier = cellID
                 cv.textField = tf
                 cv.addSubview(tf)
+                enableSubviewClipping(cv)
 
                 NSLayoutConstraint.activate([
                     tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
@@ -275,11 +375,13 @@ struct AppKitLogTableView: NSViewRepresentable {
                 tf.lineBreakMode = .byClipping
                 tf.alignment = .left
                 tf.translatesAutoresizingMaskIntoConstraints = false
+                configureCompressibleTextField(tf)
 
                 let cv = NSTableCellView()
                 cv.identifier = cellID
                 cv.textField = tf
                 cv.addSubview(tf)
+                enableSubviewClipping(cv)
 
                 NSLayoutConstraint.activate([
                     tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
@@ -331,11 +433,13 @@ struct AppKitLogTableView: NSViewRepresentable {
                 tf.lineBreakMode = .byClipping
                 tf.textColor = .secondaryLabelColor
                 tf.translatesAutoresizingMaskIntoConstraints = false
+                configureCompressibleTextField(tf)
 
                 let cv = NSTableCellView()
                 cv.identifier = cellID
                 cv.textField = tf
                 cv.addSubview(tf)
+                enableSubviewClipping(cv)
 
                 NSLayoutConstraint.activate([
                     tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
@@ -358,6 +462,51 @@ struct AppKitLogTableView: NSViewRepresentable {
             return cellView
         }
 
+        private func makeFieldCell(tableView: NSTableView, value: String, font: NSFont) -> NSView {
+            let cellID = AppKitLogTableView.fieldCellID
+            let cellView: NSTableCellView
+            let textField: NSTextField
+
+            if let reused = tableView.makeView(withIdentifier: cellID, owner: self) as? NSTableCellView,
+               let existingTF = reused.textField {
+                cellView = reused
+                textField = existingTF
+            } else {
+                let tf = NSTextField(labelWithString: "")
+                tf.isEditable = false
+                tf.isBordered = false
+                tf.drawsBackground = false
+                tf.isSelectable = true
+                tf.maximumNumberOfLines = 1
+                tf.lineBreakMode = .byClipping
+                tf.usesSingleLineMode = true
+                tf.translatesAutoresizingMaskIntoConstraints = false
+                configureCompressibleTextField(tf)
+
+                let cv = NSTableCellView()
+                cv.identifier = cellID
+                cv.textField = tf
+                cv.addSubview(tf)
+                enableSubviewClipping(cv)
+
+                NSLayoutConstraint.activate([
+                    tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
+                    tf.bottomAnchor.constraint(lessThanOrEqualTo: cv.bottomAnchor, constant: -2),
+                    tf.leadingAnchor.constraint(equalTo: cv.leadingAnchor, constant: 4),
+                    tf.trailingAnchor.constraint(equalTo: cv.trailingAnchor, constant: -4),
+                ])
+
+                cellView = cv
+                textField = tf
+            }
+
+            textField.stringValue = value
+            textField.font = font
+            textField.textColor = .labelColor
+
+            return cellView
+        }
+
         private func makeContentCell(tableView: NSTableView, entry: LogEntry, font: NSFont, fontSize: Double) -> NSView {
             let cellID = AppKitLogTableView.cellID
             let cellView: NSTableCellView
@@ -375,12 +524,16 @@ struct AppKitLogTableView: NSViewRepresentable {
                 tf.drawsBackground = false
                 tf.isSelectable = true
                 tf.maximumNumberOfLines = 0
+                tf.lineBreakMode = .byWordWrapping
+                tf.usesSingleLineMode = false
                 tf.translatesAutoresizingMaskIntoConstraints = false
+                configureCompressibleTextField(tf)
 
                 let cv = NSTableCellView()
                 cv.identifier = cellID
                 cv.textField = tf
                 cv.addSubview(tf)
+                enableSubviewClipping(cv)
 
                 NSLayoutConstraint.activate([
                     tf.topAnchor.constraint(equalTo: cv.topAnchor, constant: 2),
@@ -395,7 +548,7 @@ struct AppKitLogTableView: NSViewRepresentable {
 
             // Set preferred width so Auto Layout knows when to wrap
             let contentColumnWidth = tableView.tableColumn(withIdentifier: AppKitLogTableView.contentColumnID)?.width ?? 600
-            textField.preferredMaxLayoutWidth = contentColumnWidth - 8 // minus padding
+            textField.preferredMaxLayoutWidth = max(1, contentColumnWidth - 8) // minus padding
 
             // Highlight message only (quoted strings + search)
             let attributed = highlighter.highlightMessageNS(entry, fontSize: fontSize)
@@ -410,6 +563,29 @@ struct AppKitLogTableView: NSViewRepresentable {
             }
 
             return cellView
+        }
+
+        private func updateVisibleContentWrapping(tableView: NSTableView) {
+            guard let contentColumnIndex = tableView.tableColumns.firstIndex(where: { $0.identifier == AppKitLogTableView.contentColumnID }),
+                  let contentColumn = tableView.tableColumn(withIdentifier: AppKitLogTableView.contentColumnID) else {
+                return
+            }
+
+            let preferredWidth = max(1, contentColumn.width - 8)
+            let visibleRows = tableView.rows(in: tableView.visibleRect)
+            guard visibleRows.location != NSNotFound, visibleRows.length > 0 else { return }
+
+            let rowRange = visibleRows.location..<(visibleRows.location + visibleRows.length)
+            for row in rowRange {
+                guard let cellView = tableView.view(atColumn: contentColumnIndex, row: row, makeIfNecessary: false) as? NSTableCellView,
+                      let textField = cellView.textField else {
+                    continue
+                }
+                textField.preferredMaxLayoutWidth = preferredWidth
+                textField.invalidateIntrinsicContentSize()
+            }
+
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: rowRange))
         }
 
         // MARK: - Search Match Helpers

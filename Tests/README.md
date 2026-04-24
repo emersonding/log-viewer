@@ -20,7 +20,7 @@ The `generate_test_logs.sh` script generates sample log files of various sizes a
 
 ### Generated Files
 
-The script generates 7 test log files:
+The script generates 8 test log files:
 
 #### 1. **small.log** (100 lines, ~2KB)
 - **Purpose:** Quick unit tests, basic functionality verification
@@ -47,13 +47,18 @@ The script generates 7 test log files:
 - **Use Case:** Verify handling of maximum file size, memory usage <2x file size (<1GB RAM)
 - **Warning:** Generation takes 2-5 minutes. File size is substantial; ensure adequate disk space.
 
-#### 5. **binary.bin** (small, ~50 bytes)
+#### 5. **field_values.log** (small, key-value examples)
+- **Purpose:** Manual verification of custom extracted field columns
+- **Content:** Plain-text log messages with `field=value`, `field="quoted value"`, `field='quoted value'`, dotted field names, and hyphenated field names
+- **Use Case:** Open this file, add fields like `request_id`, `user`, `status`, `error.code`, `trace-id`, `cache.hit`, or `queue`, and verify the table displays extracted values
+
+#### 6. **binary.bin** (small, ~50 bytes)
 - **Purpose:** Error handling test for binary files
 - **Content:** Mix of text and binary data including null bytes (`\x00`) and high bytes (`\xFF\xFE`)
 - **Expected Behavior:** Lumen should detect binary content and show error instead of attempting to parse
 - **Use Case:** Verify binary file detection (first 8KB check for null bytes)
 
-#### 6. **malformed.log** (~1KB)
+#### 7. **malformed.log** (~1KB)
 - **Purpose:** Edge case and error handling
 - **Content:**
   - Lines without timestamps or log levels
@@ -64,7 +69,7 @@ The script generates 7 test log files:
 - **Expected Behavior:** Parser should handle gracefully, replace invalid UTF-8 with U+FFFD, truncate long lines with indicator
 - **Use Case:** Verify robustness against malformed input
 
-#### 7. **multiline.log** (stack traces, ~500 bytes)
+#### 8. **multiline.log** (stack traces, ~500 bytes)
 - **Purpose:** Multi-line entry detection and grouping
 - **Content:**
   - Stack traces (lines without leading timestamps that follow an error entry)

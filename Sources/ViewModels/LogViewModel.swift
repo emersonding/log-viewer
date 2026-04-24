@@ -20,6 +20,8 @@ enum TimestampSortOrder {
 @Observable
 @MainActor
 final class LogViewModel {
+    static let maxExtractedFields = 16
+
     // MARK: - Published Properties
 
     /// All parsed log entries from the file
@@ -74,6 +76,12 @@ final class LogViewModel {
     /// Whether the sidebar/history panel is visible
     var isSidebarVisible: Bool = true
 
+    /// User-selected key=value fields to show as table columns.
+    var extractedFieldNames: [String] = []
+
+    /// Counter that increments when extracted field columns change.
+    var fieldChangeCounter: Int = 0
+
     // MARK: - Private Properties
 
     private let maxHistoryCount = 50
@@ -107,6 +115,9 @@ final class LogViewModel {
     /// Auto-refresh timer
     private var autoRefreshTimer: Timer? = nil
 
+    /// Cached field regexes keyed by exact field name.
+    private var fieldRegexCache: [String: NSRegularExpression] = [:]
+
     // MARK: - Initialization
 
     init() {
@@ -115,6 +126,55 @@ final class LogViewModel {
     }
 
     // MARK: - Public Methods
+
+    /// Add a field column extracted lazily from each entry's message.
+    func addExtractedField(_ rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isValidExtractedFieldName(name),
+              extractedFieldNames.count < Self.maxExtractedFields,
+              !extractedFieldNames.contains(name) else {
+            return
+        }
+
+        extractedFieldNames.append(name)
+        fieldChangeCounter += 1
+    }
+
+    /// Remove a previously added extracted field column.
+    func removeExtractedField(_ name: String) {
+        let oldCount = extractedFieldNames.count
+        extractedFieldNames.removeAll { $0 == name }
+        if extractedFieldNames.count != oldCount {
+            fieldChangeCounter += 1
+        }
+    }
+
+    /// Validate common logfmt-style field names.
+    func isValidExtractedFieldName(_ rawName: String) -> Bool {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return false }
+        return name.range(of: #"^[A-Za-z_][A-Za-z0-9_.-]*$"#, options: .regularExpression) != nil
+    }
+
+    /// Extract field=value, field="value", or field='value' from a log entry message.
+    func extractedFieldValue(named fieldName: String, in entry: LogEntry) -> String {
+        guard let regex = regexForExtractedField(named: fieldName) else { return "" }
+
+        let message = entry.message
+        let range = NSRange(message.startIndex..., in: message)
+        guard let match = regex.firstMatch(in: message, range: range) else { return "" }
+
+        for groupIndex in 1..<match.numberOfRanges {
+            let groupRange = match.range(at: groupIndex)
+            guard groupRange.location != NSNotFound,
+                  let range = Range(groupRange, in: message) else {
+                continue
+            }
+            return String(message[range])
+        }
+
+        return ""
+    }
 
     /// Open and parse a log file
     /// - Parameter url: File URL to open
@@ -622,6 +682,8 @@ final class LogViewModel {
         currentFileOffset = nil
         allEntries = []
         displayedEntries = []
+        extractedFieldNames = []
+        fieldChangeCounter += 1
         partialLineBuffer = nil
         hasNewContent = false
         errorMessage = nil
@@ -748,6 +810,21 @@ final class LogViewModel {
         }
 
         return sorted.flatMap { $0.entries }
+    }
+
+    private func regexForExtractedField(named fieldName: String) -> NSRegularExpression? {
+        if let cached = fieldRegexCache[fieldName] {
+            return cached
+        }
+
+        guard isValidExtractedFieldName(fieldName) else { return nil }
+
+        let escapedName = NSRegularExpression.escapedPattern(for: fieldName)
+        let pattern = #"(?:^|[\s,\[{(])"# + escapedName + #"\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s,\]})]+))"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+
+        fieldRegexCache[fieldName] = regex
+        return regex
     }
 }
 

@@ -11,6 +11,7 @@
 #   - medium.log (10,000 lines, realistic distribution)
 #   - large.log (1M lines, ~100MB, for performance testing)
 #   - huge.log (5M lines, ~500MB, for stress testing)
+#   - field_values.log (key=value field extraction examples)
 #   - binary.bin (binary file for error handling test)
 #   - malformed.log (invalid UTF-8, missing timestamps, long lines)
 #   - multiline.log (stack traces and continuation lines)
@@ -129,6 +130,20 @@ for i in {1..100}; do
     message=$(sample_message)
     echo "$timestamp [$level] $message" >> "$OUTPUT_DIR/small.log"
 done
+
+# ============================================================================
+# Generate field_values.log (key=value field extraction examples)
+# ============================================================================
+
+echo "Generating field_values.log..."
+> "$OUTPUT_DIR/field_values.log"
+
+echo '2026-04-13T10:50:00Z [INFO] Request completed request_id=req-001 user="Ada Lovelace" status=200 duration_ms=37 path="/api/users"' >> "$OUTPUT_DIR/field_values.log"
+echo '2026-04-13T10:50:01Z [WARNING] Slow request request_id=req-002 user="Grace Hopper" status=200 duration_ms=1240 path="/api/reports"' >> "$OUTPUT_DIR/field_values.log"
+echo "2026-04-13T10:50:02Z [ERROR] Request failed request_id=req-003 user='Linus Torvalds' status=503 error.code=upstream_timeout trace-id=4f9c2a" >> "$OUTPUT_DIR/field_values.log"
+echo "2026-04-13T10:50:03Z [DEBUG] Cache lookup key=user:123 cache.hit=true shard=profiles-2 ttl_ms=30000" >> "$OUTPUT_DIR/field_values.log"
+echo '2026-04-13T10:50:04Z [INFO] Background job job_id=job-442 type=email_digest queue="default priority" attempts=1' >> "$OUTPUT_DIR/field_values.log"
+echo "2026-04-13T10:50:05Z [TRACE] No custom fields in this message" >> "$OUTPUT_DIR/field_values.log"
 
 # ============================================================================
 # Generate medium.log (10,000 lines, realistic distribution)

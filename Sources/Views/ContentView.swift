@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(LogViewModel.self) private var viewModel
     @State private var focusSearchBar: Bool = false
+    @State private var fieldNameInput: String = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -216,6 +217,14 @@ struct ContentView: View {
                     Divider()
                 }
 
+            extractedFieldsBar(vm: vm)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(.windowBackgroundColor))
+                .overlay(alignment: .bottom) {
+                    Divider()
+                }
+
             // Log table view (AppKit NSTableView for performance with large files)
             AppKitLogTableView(viewModel: vm)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -223,6 +232,72 @@ struct ContentView: View {
             // Status bar
             StatusBarView(viewModel: vm)
         }
+    }
+
+    private func extractedFieldsBar(vm: LogViewModel) -> some View {
+        HStack(spacing: 8) {
+            TextField("field", text: $fieldNameInput)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 160)
+                .onSubmit {
+                    addExtractedField(vm)
+                }
+                .accessibilityLabel("Field name")
+                .accessibilityHint("Enter a key-value field name to add as a log table column")
+
+            Button {
+                addExtractedField(vm)
+            } label: {
+                Image(systemName: "plus")
+                    .accessibilityHidden(true)
+            }
+            .buttonStyle(.bordered)
+            .disabled(!canAddExtractedField(vm))
+            .help("Add field column")
+            .accessibilityLabel("Add field column")
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(vm.extractedFieldNames, id: \.self) { fieldName in
+                        HStack(spacing: 4) {
+                            Text(fieldName)
+                                .font(.system(.caption, design: .monospaced))
+
+                            Button {
+                                vm.removeExtractedField(fieldName)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .accessibilityHidden(true)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("Remove \(fieldName)")
+                            .accessibilityLabel("Remove \(fieldName)")
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color(.controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: 28, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func canAddExtractedField(_ vm: LogViewModel) -> Bool {
+        let name = fieldNameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return vm.extractedFieldNames.count < LogViewModel.maxExtractedFields &&
+            vm.isValidExtractedFieldName(name) &&
+            !vm.extractedFieldNames.contains(name)
+    }
+
+    private func addExtractedField(_ vm: LogViewModel) {
+        guard canAddExtractedField(vm) else { return }
+        vm.addExtractedField(fieldNameInput)
+        fieldNameInput = ""
     }
 
     // MARK: - File Operations
