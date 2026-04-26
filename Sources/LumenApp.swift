@@ -12,20 +12,83 @@ extension Notification.Name {
     static let focusSearchField = Notification.Name("focusSearchField")
 }
 
+final class AppFileOpenCoordinator {
+    private var pendingURLs: [URL] = []
+    private var openHandler: ((URL) -> Void)?
+
+    func setOpenHandler(_ handler: @escaping (URL) -> Void) {
+        openHandler = handler
+
+        guard !pendingURLs.isEmpty else { return }
+        let urls = pendingURLs
+        pendingURLs.removeAll()
+
+        for url in urls {
+            handler(url)
+        }
+    }
+
+    @discardableResult
+    func handleOpen(urls: [URL]) -> Bool {
+        let fileURLs = urls.filter(\.isFileURL)
+        guard !fileURLs.isEmpty else { return false }
+
+        if let openHandler {
+            for url in fileURLs {
+                openHandler(url)
+            }
+        } else {
+            pendingURLs.append(contentsOf: fileURLs)
+        }
+
+        return true
+    }
+
+    static func launchURL(from arguments: [String]) -> URL? {
+        guard let filePath = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: filePath)
+    }
+}
+
+final class LumenAppDelegate: NSObject, NSApplicationDelegate {
+    let fileOpenCoordinator = AppFileOpenCoordinator()
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        return fileOpenCoordinator.handleOpen(urls: [URL(fileURLWithPath: filename)])
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        let urls = filenames.map(URL.init(fileURLWithPath:))
+
+        Task { @MainActor in
+            let didHandle = fileOpenCoordinator.handleOpen(urls: urls)
+            sender.reply(toOpenOrPrint: didHandle ? .success : .failure)
+        }
+    }
+}
+
 @main
 @MainActor
 struct LumenApp: App {
+    @NSApplicationDelegateAdaptor(LumenAppDelegate.self) private var appDelegate
     @State private var viewModel = LogViewModel()
+    @State private var didConfigureFileHandling = false
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(viewModel)
+                .onOpenURL { url in
+                    _ = appDelegate.fileOpenCoordinator.handleOpen(urls: [url])
+                }
                 .onAppear {
                     // Ensure app shows in dock and comes to front when run as bare binary
                     NSApplication.shared.setActivationPolicy(.regular)
                     NSApplication.shared.activate(ignoringOtherApps: true)
-                    handleCommandLineArguments()
+                    configureFileHandlingIfNeeded()
                 }
         }
         .commands {
@@ -141,18 +204,18 @@ struct LumenApp: App {
     }
 
     /// Handle command-line arguments: first arg treated as file path
-    private func handleCommandLineArguments() {
-        let arguments = CommandLine.arguments
+    private func configureFileHandlingIfNeeded() {
+        guard !didConfigureFileHandling else { return }
+        didConfigureFileHandling = true
 
-        // Skip the executable path (first argument)
-        if arguments.count > 1 {
-            let filePath = arguments[1]
-            let fileURL = URL(fileURLWithPath: filePath)
-
-            // Open the file
+        appDelegate.fileOpenCoordinator.setOpenHandler { url in
             Task {
-                await viewModel.openFile(url: fileURL)
+                await viewModel.openFile(url: url)
             }
+        }
+
+        if let launchURL = AppFileOpenCoordinator.launchURL(from: CommandLine.arguments) {
+            _ = appDelegate.fileOpenCoordinator.handleOpen(urls: [launchURL])
         }
     }
 

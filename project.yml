@@ -16,6 +16,16 @@ targets:
         CFBundleName: Lumen
         CFBundleExecutable: Lumen
         CFBundleIdentifier: com.lumen.app
+        CFBundleDocumentTypes:
+          - CFBundleTypeExtensions:
+              - log
+              - txt
+            CFBundleTypeName: Text Log File
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.plain-text
+              - public.text
         LSMinimumSystemVersion: "14.0"
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true

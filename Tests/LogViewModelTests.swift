@@ -133,6 +133,40 @@ final class LogViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.displayedEntries.first?.level, .error)
     }
 
+    func testLaunchURLIgnoresAppLifecycleArguments() {
+        let url = AppFileOpenCoordinator.launchURL(from: [
+            "/Applications/Lumen.app/Contents/MacOS/Lumen",
+            "-psn_0_12345"
+        ])
+
+        XCTAssertNil(url)
+    }
+
+    func testLaunchURLReturnsFirstNonFlagArgument() {
+        let url = AppFileOpenCoordinator.launchURL(from: [
+            "/Applications/Lumen.app/Contents/MacOS/Lumen",
+            "-psn_0_12345",
+            "/tmp/system.log"
+        ])
+
+        XCTAssertEqual(url, URL(fileURLWithPath: "/tmp/system.log"))
+    }
+
+    func testFileOpenCoordinatorQueuesUntilHandlerIsRegistered() {
+        let coordinator = AppFileOpenCoordinator()
+        let firstURL = URL(fileURLWithPath: "/tmp/first.log")
+        let secondURL = URL(fileURLWithPath: "/tmp/second.log")
+        var openedURLs: [URL] = []
+
+        XCTAssertTrue(coordinator.handleOpen(urls: [firstURL, secondURL]))
+
+        coordinator.setOpenHandler { url in
+            openedURLs.append(url)
+        }
+
+        XCTAssertEqual(openedURLs, [firstURL, secondURL])
+    }
+
     // MARK: - Extracted Field Tests
 
     func testAddExtractedField() {
