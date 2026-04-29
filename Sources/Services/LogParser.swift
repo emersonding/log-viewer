@@ -16,14 +16,16 @@ actor LogParser {
     private let chunkSize = 1_048_576
 
     // Pre-compiled regexes for performance
-    private let isoTimestampRegex = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}"#)
     private let syslogTimestampRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#)
     private let epochTimestampRegex = try! NSRegularExpression(pattern: #"^\d{10,13}(\.\d+)?"#)
     private let logLevelRegex = try! NSRegularExpression(pattern: #"^\[?(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]?"#, options: .caseInsensitive)
-    private let isoExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)"#)
     private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)"#)
     private let syslogExtractRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})"#)
     private let epochExtractRegex = try! NSRegularExpression(pattern: #"^(\d{10,13}(?:\.\d+)?)"#)
+    private let jsonTimestampFieldNames = ["timestamp", "time", "ts", "datetime", "date", "@timestamp"]
+    private let jsonLevelFieldNames = ["level", "severity", "log_level", "loglevel", "lvl", "priority"]
+    private let jsonMessageFieldNames = ["message", "msg", "log", "event"]
+    private var timestampCache: [String: Date] = [:]
 
     // Cached date formatters for performance
     private let isoFormatterWithFractional: ISO8601DateFormatter = {
@@ -51,6 +53,12 @@ actor LogParser {
     private let spaceDatetimeWithFracFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+    private let dateOnlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
@@ -268,6 +276,12 @@ actor LogParser {
     private func isNewLogEntry(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
 
+        // JSON/JSONL logs are newline-delimited; even malformed JSON lines should
+        // start a new entry so they can fall back to plain-text parsing per line.
+        if trimmed.first == "{" {
+            return true
+        }
+
         // Check for timestamp patterns
         if hasTimestamp(trimmed) {
             return true
@@ -286,7 +300,7 @@ actor LogParser {
         let nsRange = NSRange(line.startIndex..., in: line)
 
         // ISO 8601: starts with 4-digit year
-        if isoTimestampRegex.firstMatch(in: line, range: nsRange) != nil {
+        if hasISODatePrefix(line) {
             return true
         }
 
@@ -311,6 +325,10 @@ actor LogParser {
 
     /// Parse a single line into a PendingEntry
     private func parseLine(_ line: String, lineNumber: Int) -> PendingEntry {
+        if let entry = parseJSONLine(line, lineNumber: lineNumber) {
+            return entry
+        }
+
         var remaining = line
 
         // Extract timestamp
@@ -327,8 +345,198 @@ actor LogParser {
             timestamp: timestamp,
             level: level,
             message: message,
-            rawLine: line
+            rawLine: line,
+            fields: [:]
         )
+    }
+
+    private func parseJSONLine(_ line: String, lineNumber: Int) -> PendingEntry? {
+        guard let trimmed = jsonCandidateString(from: line),
+              let object = parseJSONObject(trimmed) else {
+            return nil
+        }
+
+        var fields: [String: LogFieldValue] = [:]
+        for (key, value) in object {
+            flattenJSONValue(value, path: key, fields: &fields)
+        }
+
+        return PendingEntry(
+            lineNumber: lineNumber,
+            timestamp: extractJSONTimestamp(from: object),
+            level: extractJSONLogLevel(from: object),
+            message: extractJSONMessage(from: object) ?? trimmed,
+            rawLine: line,
+            fields: fields
+        )
+    }
+
+    private func parseJSONObject(_ line: String) -> [String: Any]? {
+        guard line.first == "{", line.last == "}", let data = line.data(using: .utf8) else {
+            return nil
+        }
+
+        guard let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any] else {
+            return nil
+        }
+
+        return dictionary
+    }
+
+    private func jsonCandidateString(from line: String) -> String? {
+        guard let first = line.first else { return nil }
+
+        if first == "{" {
+            return line.last == "}" ? line : line.trimmingCharacters(in: .whitespaces)
+        }
+
+        guard first.isWhitespace else { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.first == "{", trimmed.last == "}" else { return nil }
+        return trimmed
+    }
+
+    private func extractJSONTimestamp(from object: [String: Any]) -> Date? {
+        for fieldName in jsonTimestampFieldNames {
+            guard let value = jsonValue(in: object, matching: fieldName),
+                  let timestamp = parseJSONTimestampValue(value) else {
+                continue
+            }
+            return timestamp
+        }
+
+        return nil
+    }
+
+    private func parseJSONTimestampValue(_ value: Any) -> Date? {
+        if let string = value as? String {
+            var remaining = string
+            if let timestamp = extractTimestamp(&remaining) {
+                return timestamp
+            }
+            return dateOnlyFormatter.date(from: string.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+
+        if let number = value as? NSNumber, !isJSONBool(number) {
+            let timestamp = number.doubleValue > 10_000_000_000 ? number.doubleValue / 1000 : number.doubleValue
+            return Date(timeIntervalSince1970: timestamp)
+        }
+
+        return nil
+    }
+
+    private func extractJSONLogLevel(from object: [String: Any]) -> LogLevel? {
+        for fieldName in jsonLevelFieldNames {
+            guard let value = jsonValue(in: object, matching: fieldName),
+                  let level = parseJSONLogLevelValue(value) else {
+                continue
+            }
+            return level
+        }
+
+        return nil
+    }
+
+    private func parseJSONLogLevelValue(_ value: Any) -> LogLevel? {
+        if let string = value as? String {
+            return logLevel(for: string)
+        }
+
+        if let number = value as? NSNumber, !isJSONBool(number) {
+            switch number.intValue {
+            case 0...2:
+                return .fatal
+            case 3:
+                return .error
+            case 4:
+                return .warning
+            case 5...6:
+                return .info
+            case 7:
+                return .debug
+            default:
+                return nil
+            }
+        }
+
+        return nil
+    }
+
+    private func extractJSONMessage(from object: [String: Any]) -> String? {
+        for fieldName in jsonMessageFieldNames {
+            guard let value = jsonValue(in: object, matching: fieldName),
+                  let string = value as? String else {
+                continue
+            }
+            return string
+        }
+
+        return jsonStringValue(at: "error.message", in: object)
+    }
+
+    private func jsonValue(in object: [String: Any], matching fieldName: String) -> Any? {
+        object.first { key, _ in
+            key.caseInsensitiveCompare(fieldName) == .orderedSame
+        }?.value
+    }
+
+    private func jsonStringValue(at path: String, in object: [String: Any]) -> String? {
+        let parts = path.split(separator: ".").map(String.init)
+        var current: Any = object
+
+        for part in parts {
+            guard let dictionary = current as? [String: Any],
+                  let next = jsonValue(in: dictionary, matching: part) else {
+                return nil
+            }
+            current = next
+        }
+
+        return current as? String
+    }
+
+    private func flattenJSONValue(_ value: Any, path: String, fields: inout [String: LogFieldValue]) {
+        if let dictionary = value as? [String: Any] {
+            fields[path] = .nonLeaf
+            for (key, nestedValue) in dictionary {
+                flattenJSONValue(nestedValue, path: "\(path).\(key)", fields: &fields)
+            }
+            return
+        }
+
+        if let array = value as? [Any] {
+            fields[path] = .nonLeaf
+            for (index, nestedValue) in array.enumerated() {
+                flattenJSONValue(nestedValue, path: "\(path)[\(index)]", fields: &fields)
+            }
+            return
+        }
+
+        fields[path] = logFieldValue(from: value)
+    }
+
+    private func logFieldValue(from value: Any) -> LogFieldValue {
+        if value is NSNull {
+            return .null
+        }
+
+        if let string = value as? String {
+            return .string(string)
+        }
+
+        if let number = value as? NSNumber {
+            if isJSONBool(number) {
+                return .bool(number.boolValue)
+            }
+            return .number(number.stringValue)
+        }
+
+        return .string(String(describing: value))
+    }
+
+    private func isJSONBool(_ number: NSNumber) -> Bool {
+        CFGetTypeID(number) == CFBooleanGetTypeID()
     }
 
     /// Extract timestamp from the beginning of a string
@@ -360,13 +568,17 @@ actor LogParser {
 
     /// Try to parse ISO 8601 timestamp
     private func tryParseISO8601(_ line: String, consumedLength: inout String) -> Date? {
-        let nsRange = NSRange(line.startIndex..., in: line)
-        guard let match = isoExtractRegex.firstMatch(in: line, range: nsRange),
-              let range = Range(match.range, in: line) else {
+        guard hasISODatePrefix(line) else {
             return nil
         }
 
-        let timestampString = String(line[range])
+        let endIndex = line.firstIndex(where: { $0.isWhitespace }) ?? line.endIndex
+        let timestampString = String(line[..<endIndex])
+
+        if let cachedDate = timestampCache[timestampString] {
+            consumedLength = String(line[endIndex...])
+            return cachedDate
+        }
 
         var date = isoFormatterWithFractional.date(from: timestampString)
 
@@ -377,10 +589,44 @@ actor LogParser {
 
         if date != nil {
             // Remove the timestamp from the line
-            consumedLength = String(line[range.upperBound...])
+            consumedLength = String(line[endIndex...])
+            if timestampCache.count < 1024 {
+                timestampCache[timestampString] = date
+            }
         }
 
         return date
+    }
+
+    private func hasISODatePrefix(_ line: String) -> Bool {
+        var bytes = line.utf8.makeIterator()
+        guard let b0 = bytes.next(),
+              let b1 = bytes.next(),
+              let b2 = bytes.next(),
+              let b3 = bytes.next(),
+              let b4 = bytes.next(),
+              let b5 = bytes.next(),
+              let b6 = bytes.next(),
+              let b7 = bytes.next(),
+              let b8 = bytes.next(),
+              let b9 = bytes.next() else {
+            return false
+        }
+
+        return isASCIIDigit(b0)
+            && isASCIIDigit(b1)
+            && isASCIIDigit(b2)
+            && isASCIIDigit(b3)
+            && b4 == 45
+            && isASCIIDigit(b5)
+            && isASCIIDigit(b6)
+            && b7 == 45
+            && isASCIIDigit(b8)
+            && isASCIIDigit(b9)
+    }
+
+    private func isASCIIDigit(_ byte: UInt8) -> Bool {
+        byte >= 48 && byte <= 57
     }
 
     /// Try to parse space-separated datetime (e.g., "2026-04-13 10:00:00" or "2026-04-13 10:00:00.123")
@@ -467,22 +713,47 @@ actor LogParser {
         // Use capture group 1 (the keyword without brackets) for level lookup
         let keyword = String(trimmed[keywordNSRange]).uppercased()
 
-        // Map of keywords to log levels (including aliases)
+        let level = logLevel(for: keyword)
+        // Consume the full match (including brackets) from the remaining line
+        line = String(trimmed[fullRange.upperBound...])
+        return level
+    }
+
+    private func logLevel(for value: String) -> LogLevel? {
+        let keyword = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let levelMap: [String: LogLevel] = [
             "FATAL": .fatal,
             "CRITICAL": .fatal,
             "ERROR": .error,
+            "ERR": .error,
             "WARN": .warning,
             "WARNING": .warning,
             "INFO": .info,
+            "INFORMATION": .info,
+            "NOTICE": .info,
             "DEBUG": .debug,
             "TRACE": .trace
         ]
 
-        let level = levelMap[keyword]
-        // Consume the full match (including brackets) from the remaining line
-        line = String(trimmed[fullRange.upperBound...])
-        return level
+        if let level = levelMap[keyword] {
+            return level
+        }
+
+        guard let numericLevel = Int(keyword) else { return nil }
+        switch numericLevel {
+        case 0...2:
+            return .fatal
+        case 3:
+            return .error
+        case 4:
+            return .warning
+        case 5...6:
+            return .info
+        case 7:
+            return .debug
+        default:
+            return nil
+        }
     }
 }
 
@@ -495,6 +766,7 @@ private struct PendingEntry {
     let level: LogLevel?
     var message: String
     var rawLine: String
+    var fields: [String: LogFieldValue] = [:]
 
     mutating func appendContinuation(_ line: String) {
         message += "\n" + line
@@ -507,7 +779,8 @@ private struct PendingEntry {
             timestamp: timestamp,
             level: level,
             message: message,
-            rawLine: rawLine
+            rawLine: rawLine,
+            fields: fields
         )
     }
 }

@@ -17,6 +17,11 @@ struct LogEntry: Identifiable, Sendable {
     let level: LogLevel?
     let message: String
     let rawLine: String
+    private let structuredFields: [String: LogFieldValue]?
+
+    var fields: [String: LogFieldValue] {
+        structuredFields ?? [:]
+    }
 
     init(
         id: UUID = UUID(),
@@ -24,7 +29,8 @@ struct LogEntry: Identifiable, Sendable {
         timestamp: Date? = nil,
         level: LogLevel? = nil,
         message: String,
-        rawLine: String
+        rawLine: String,
+        fields: [String: LogFieldValue] = [:]
     ) {
         self.id = id
         self.lineNumber = lineNumber
@@ -32,6 +38,28 @@ struct LogEntry: Identifiable, Sendable {
         self.level = level
         self.message = message
         self.rawLine = rawLine
+        self.structuredFields = fields.isEmpty ? nil : fields
+    }
+}
+
+enum LogFieldValue: Equatable, Sendable {
+    case string(String)
+    case number(String)
+    case bool(Bool)
+    case null
+    case nonLeaf
+
+    var displayValue: String {
+        switch self {
+        case .string(let value), .number(let value):
+            return value
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .null:
+            return "null"
+        case .nonLeaf:
+            return ""
+        }
     }
 }
 

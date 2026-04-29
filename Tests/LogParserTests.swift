@@ -268,6 +268,183 @@ final class LogParserTests: XCTestCase {
         XCTAssertNil(entries[3].timestamp)
     }
 
+    func testParseJSONLogLineWithEmbeddedMetadata() async {
+        let logData = #"""
+        {"timestamp":"2026-04-13T10:30:00Z","level":"error","message":"Request failed","request":{"id":"abc123","duration_ms":42},"success":false,"sample":null}
+        """#.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertNotNil(entries[0].timestamp)
+        XCTAssertEqual(entries[0].level, .error)
+        XCTAssertEqual(entries[0].message, "Request failed")
+        XCTAssertEqual(entries[0].fields["request.id"]?.displayValue, "abc123")
+        XCTAssertEqual(entries[0].fields["request.duration_ms"]?.displayValue, "42")
+        XCTAssertEqual(entries[0].fields["success"]?.displayValue, "false")
+        XCTAssertEqual(entries[0].fields["sample"]?.displayValue, "null")
+        XCTAssertEqual(entries[0].fields["request"]?.displayValue, "")
+    }
+
+    func testParseJSONAliasesAndNestedMessage() async {
+        let logData = #"""
+        {"time":1713006600123,"severity":"warn","error":{"message":"Nested message"}}
+        {"ts":"1713006600","lvl":3,"msg":"Numeric severity"}
+        """#.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertNotNil(entries[0].timestamp)
+        XCTAssertEqual(entries[0].level, .warning)
+        XCTAssertEqual(entries[0].message, "Nested message")
+        XCTAssertNotNil(entries[1].timestamp)
+        XCTAssertEqual(entries[1].level, .error)
+        XCTAssertEqual(entries[1].message, "Numeric severity")
+    }
+
+    func testParseJSONLinesWithoutTimestampOrLevelAreSeparateEntries() async {
+        let logData = #"""
+        {"message":"First","request":{"id":"one"}}
+        {"message":"Second","request":{"id":"two"}}
+        """#.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertNil(entries[0].timestamp)
+        XCTAssertNil(entries[0].level)
+        XCTAssertEqual(entries[0].message, "First")
+        XCTAssertEqual(entries[1].message, "Second")
+    }
+
+    func testParseJSONArrayIndexesAsFieldPaths() async {
+        let logData = #"""
+        {"message":"Has items","items":[{"id":"first"},true,3]}
+        """#.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].fields["items"]?.displayValue, "")
+        XCTAssertEqual(entries[0].fields["items[0]"]?.displayValue, "")
+        XCTAssertEqual(entries[0].fields["items[0].id"]?.displayValue, "first")
+        XCTAssertEqual(entries[0].fields["items[1]"]?.displayValue, "true")
+        XCTAssertEqual(entries[0].fields["items[2]"]?.displayValue, "3")
+    }
+
+    func testParseInvalidJSONFallsThroughToPlainText() async {
+        let logData = #"""
+        {"valid":"json","level":"info","message":"good"}
+        {broken json
+        {"also_valid":"yes","msg":"works"}
+        """#.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 3)
+        guard entries.count == 3 else { return }
+        XCTAssertEqual(entries[0].level, .info)
+        XCTAssertEqual(entries[0].message, "good")
+        XCTAssertEqual(entries[1].message, "{broken json")
+        XCTAssertEqual(entries[2].message, "works")
+    }
+
+    func testParseJSONLogsFromFixtureFile() async throws {
+        let fixtureURL = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()
+            .appendingPathComponent("TestData/sample.jsonl")
+        let data = try Data(contentsOf: fixtureURL)
+
+        let entries = await parser.parse(data)
+
+        XCTAssertEqual(entries.count, 10, "Should parse all 10 JSONL lines")
+
+        // Line 1: standard fields + bool + number leaf
+        let e1 = entries[0]
+        XCTAssertEqual(e1.level, .info)
+        XCTAssertEqual(e1.message, "Service started successfully")
+        XCTAssertNotNil(e1.timestamp)
+        XCTAssertEqual(e1.fields["service"]?.displayValue, "api-gateway")
+        XCTAssertEqual(e1.fields["pid"]?.displayValue, "1234")
+        XCTAssertEqual(e1.fields["success"]?.displayValue, "true")
+        XCTAssertEqual(e1.fields["env"]?.displayValue, "production")
+
+        // Line 2: time (ms epoch) + severity alias + msg alias + nested objects + array
+        let e2 = entries[1]
+        XCTAssertEqual(e2.level, .error)
+        XCTAssertEqual(e2.message, "Connection refused")
+        XCTAssertNotNil(e2.timestamp)
+        XCTAssertEqual(e2.fields["host"]?.displayValue, "db-primary")
+        XCTAssertEqual(e2.fields["retry"]?.displayValue, "")
+        XCTAssertEqual(e2.fields["retry.count"]?.displayValue, "3")
+        XCTAssertEqual(e2.fields["retry.max"]?.displayValue, "5")
+        XCTAssertEqual(e2.fields["retry.strategy"]?.displayValue, "exponential")
+        XCTAssertEqual(e2.fields["tags"]?.displayValue, "")
+        XCTAssertEqual(e2.fields["tags[0]"]?.displayValue, "database")
+        XCTAssertEqual(e2.fields["tags[1]"]?.displayValue, "critical")
+
+        // Line 3: ts (string epoch) + warn alias
+        let e3 = entries[2]
+        XCTAssertEqual(e3.level, .warning)
+        XCTAssertEqual(e3.message, "High memory usage detected")
+        XCTAssertNotNil(e3.timestamp)
+        XCTAssertEqual(e3.fields["percentage"]?.displayValue, "50.5")
+
+        // Line 4: @timestamp + loglevel + log aliases
+        let e4 = entries[3]
+        XCTAssertEqual(e4.level, .debug)
+        XCTAssertEqual(e4.message, "Cache miss for key user:42")
+        XCTAssertNotNil(e4.timestamp)
+        XCTAssertEqual(e4.fields["cache.hit"]?.displayValue, "false")
+        XCTAssertEqual(e4.fields["cache.key"]?.displayValue, "user:42")
+        XCTAssertEqual(e4.fields["duration_ms"]?.displayValue, "1.5")
+
+        // Line 5: datetime + lvl (numeric 7=debug) + null value
+        let e5 = entries[4]
+        XCTAssertEqual(e5.level, .debug)
+        XCTAssertEqual(e5.message, "Tracing request flow")
+        XCTAssertNotNil(e5.timestamp)
+        XCTAssertEqual(e5.fields["trace_id"]?.displayValue, "abc-def-123")
+        XCTAssertEqual(e5.fields["parent_span"]?.displayValue, "null")
+
+        // Line 6: error.message nested message extraction
+        let e6 = entries[5]
+        XCTAssertEqual(e6.level, .error)
+        XCTAssertEqual(e6.message, "NullPointerException at UserService.getProfile")
+        XCTAssertEqual(e6.fields["error.code"]?.displayValue, "NPE001")
+        XCTAssertEqual(e6.fields["user_id"]?.displayValue, "usr_789")
+
+        // Line 7: date + event alias
+        let e7 = entries[6]
+        XCTAssertEqual(e7.level, .info)
+        XCTAssertEqual(e7.message, "Scheduled job completed")
+        XCTAssertNotNil(e7.timestamp)
+        XCTAssertEqual(e7.fields["job.files_deleted"]?.displayValue, "47")
+
+        // Line 8: priority (numeric 4=warning) + nested rate_limit
+        let e8 = entries[7]
+        XCTAssertEqual(e8.level, .warning)
+        XCTAssertEqual(e8.message, "Rate limit approaching threshold")
+        XCTAssertEqual(e8.fields["rate_limit.current"]?.displayValue, "950")
+        XCTAssertEqual(e8.fields["rate_limit.window_sec"]?.displayValue, "60")
+        XCTAssertEqual(e8.fields["action_taken"]?.displayValue, "throttle")
+
+        // Line 9: FATAL level
+        let e9 = entries[8]
+        XCTAssertEqual(e9.level, .fatal)
+        XCTAssertEqual(e9.message, "Out of memory - shutting down")
+
+        // Line 10: TRACE level with deep nesting
+        let e10 = entries[9]
+        XCTAssertEqual(e10.level, .trace)
+        XCTAssertEqual(e10.message, "Entering function")
+        XCTAssertEqual(e10.fields["metadata.caller"]?.displayValue, "middleware")
+        XCTAssertEqual(e10.fields["metadata.line"]?.displayValue, "88")
+        XCTAssertEqual(e10.fields["args.algorithm"]?.displayValue, "RS256")
+        XCTAssertEqual(e10.fields["args"]?.displayValue, "")
+    }
+
     func testParseCaseInsensitiveLogLevels() async {
         let logData = """
         2026-04-13T10:30:00Z error lowercase error

@@ -250,6 +250,32 @@ final class LogViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.extractedFieldValue(named: "field", in: entry), "right")
     }
 
+    func testExtractedFieldValueUsesJSONFieldsBeforeLogfmtFallback() {
+        let entry = LogEntry(
+            lineNumber: 1,
+            level: .info,
+            message: "request.id=logfmt",
+            rawLine: #"{"request":{"id":"json"}}"#,
+            fields: [
+                "request": .nonLeaf,
+                "request.id": .string("json"),
+                "items[0].id": .number("7")
+            ]
+        )
+
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "request.id", in: entry), "json")
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "request", in: entry), "")
+        XCTAssertEqual(viewModel.extractedFieldValue(named: "items[0].id", in: entry), "7")
+    }
+
+    func testExtractedFieldNameAllowsNestedAndIndexedJSONPaths() {
+        XCTAssertTrue(viewModel.isValidExtractedFieldName("request.user.id"))
+        XCTAssertTrue(viewModel.isValidExtractedFieldName("items[0].id"))
+        XCTAssertTrue(viewModel.isValidExtractedFieldName("@timestamp"))
+        XCTAssertFalse(viewModel.isValidExtractedFieldName("items[].id"))
+        XCTAssertFalse(viewModel.isValidExtractedFieldName("bad field"))
+    }
+
     func testOpenFileClearsExistingData() async throws {
         // Given: A view model with existing data
         let fileURL1 = testDataDirectory.appendingPathComponent("small.log")

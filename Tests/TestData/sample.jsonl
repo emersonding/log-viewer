@@ -1,0 +1,10 @@
+{"timestamp":"2026-04-30T10:00:00Z","level":"info","message":"Service started successfully","service":"api-gateway","pid":1234,"success":true,"env":"production"}
+{"time":1714456800000,"severity":"error","msg":"Connection refused","host":"db-primary","port":5432,"retry":{"count":3,"max":5,"strategy":"exponential"},"tags":["database","critical"]}
+{"ts":"2026-04-30T10:01:30Z","level":"warn","message":"High memory usage detected","used_mb":8192,"total_mb":16384,"percentage":50.5}
+{"@timestamp":"2026-04-30T10:02:00Z","loglevel":"debug","log":"Cache miss for key user:42","cache":{"hit":false,"key":"user:42","ttl_sec":300},"duration_ms":1.5}
+{"datetime":"2026-04-30T10:02:30Z","lvl":7,"message":"Tracing request flow","trace_id":"abc-def-123","span_id":"span-001","parent_span":null}
+{"timestamp":"2026-04-30T10:03:00Z","level":"error","error":{"message":"NullPointerException at UserService.getProfile","code":"NPE001","stack":"  at UserService.getProfile(line 42)\n  at RequestHandler.handle(line 15)"},"user_id":"usr_789"}
+{"date":"2026-04-30","severity":"info","event":"Scheduled job completed","job":{"name":"cleanup-temp-files","duration_ms":1520,"files_deleted":47},"next_run":"2026-04-30T11:00:00Z"}
+{"timestamp":"2026-04-30T10:04:00Z","priority":4,"message":"Rate limit approaching threshold","rate_limit":{"current":950,"limit":1000,"window_sec":60},"action_taken":"throttle"}
+{"timestamp":"2026-04-30T10:04:30Z","level":"fatal","message":"Out of memory - shutting down","heap_mb":2048,"max_mb":2048,"exit_code":137}
+{"timestamp":"2026-04-30T10:05:00Z","level":"trace","message":"Entering function","module":"auth","function":"verifyToken","args":{"token_length":256,"algorithm":"RS256"},"metadata":{"caller":"middleware","line":88}}

@@ -211,11 +211,15 @@ final class LogViewModel {
     func isValidExtractedFieldName(_ rawName: String) -> Bool {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return false }
-        return name.range(of: #"^[A-Za-z_][A-Za-z0-9_.-]*$"#, options: .regularExpression) != nil
+        return name.range(of: #"^[A-Za-z_@][A-Za-z0-9_@.-]*(?:\[[0-9]+\])?(?:\.[A-Za-z_@][A-Za-z0-9_@.-]*(?:\[[0-9]+\])?)*$"#, options: .regularExpression) != nil
     }
 
     /// Extract field=value, field="value", or field='value' from a log entry message.
     func extractedFieldValue(named fieldName: String, in entry: LogEntry) -> String {
+        if let value = entry.fields[fieldName] {
+            return value.displayValue
+        }
+
         guard let regex = regexForExtractedField(named: fieldName) else { return "" }
 
         let message = entry.message
@@ -645,7 +649,8 @@ final class LogViewModel {
                         timestamp: entry.timestamp,
                         level: entry.level,
                         message: entry.message,
-                        rawLine: entry.rawLine
+                        rawLine: entry.rawLine,
+                        fields: entry.fields
                     )
                 }
 
