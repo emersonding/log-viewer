@@ -42,6 +42,11 @@ A simple GUI log reviewer as an alternative to the macOS native Console app, wit
 - **Line numbers** in gutter
 - **Multi-format timestamp parsing** - ISO 8601 (`2026-04-13T10:00:00Z`), space-separated (`2026-04-13 10:00:00`), syslog (`Apr 13 10:30:00`), Unix epoch
 
+## What's New in 2.3.0
+
+- Multi-row selection in the log table: Cmd+click toggles a row, Shift+click extends the range, Cmd+A selects all.
+- Cmd+C copies the selected rows as raw log lines, preserving multiline stack traces.
+
 ## What's New in 2.2.0
 
 - Fixed log table font size changes so visible rows update immediately.
