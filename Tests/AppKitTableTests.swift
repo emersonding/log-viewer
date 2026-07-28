@@ -6,13 +6,31 @@
 //  multiline display, and syntax highlighting in NSAttributedString.
 //
 
+import AppKit
 import XCTest
 @testable import Lumen
+
+/// Minimal data source so NSTableView reports a row count without needing the
+/// full SwiftUI coordinator.
+@MainActor
+private final class StaticRowCountDataSource: NSObject, NSTableViewDataSource {
+    let rowCount: Int
+
+    init(rowCount: Int) {
+        self.rowCount = rowCount
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        rowCount
+    }
+}
 
 @MainActor
 final class AppKitTableTests: XCTestCase {
 
     private var viewModel: LogViewModel!
+    /// NSTableView holds its data source weakly, so the test must own it.
+    private var tableDataSource: StaticRowCountDataSource?
 
     override func setUp() {
         super.setUp()
@@ -165,6 +183,122 @@ final class AppKitTableTests: XCTestCase {
 
         XCTAssertEqual(smallFont?.pointSize, 12)
         XCTAssertEqual(largeFont?.pointSize, 18)
+    }
+
+    // MARK: - Row Copy
+
+    private func loadCopyFixture() {
+        viewModel.displayedEntries = (1...3).map { index in
+            LogEntry(
+                lineNumber: index,
+                level: .info,
+                message: "message \(index)",
+                rawLine: "[INFO] message \(index)"
+            )
+        }
+    }
+
+    func testCopyTextForSingleRow() {
+        loadCopyFixture()
+
+        XCTAssertEqual(viewModel.copyText(forRows: IndexSet(integer: 1)), "[INFO] message 2")
+    }
+
+    func testCopyTextJoinsRowsInDisplayOrder() {
+        loadCopyFixture()
+
+        // Selection order is irrelevant — output follows display order.
+        let text = viewModel.copyText(forRows: IndexSet([2, 0]))
+
+        XCTAssertEqual(text, "[INFO] message 1\n[INFO] message 3")
+    }
+
+    func testCopyTextReturnsNilForEmptySelection() {
+        loadCopyFixture()
+
+        XCTAssertNil(viewModel.copyText(forRows: IndexSet()))
+    }
+
+    func testCopyTextIgnoresOutOfRangeRows() {
+        loadCopyFixture()
+
+        // Stale selections can outlive a filter change that shrank the table.
+        XCTAssertEqual(viewModel.copyText(forRows: IndexSet([0, 99])), "[INFO] message 1")
+        XCTAssertNil(viewModel.copyText(forRows: IndexSet(integer: 99)))
+    }
+
+    func testCopyTextPreservesMultilineRawLine() {
+        let raw = "[ERROR] boom\n  at Frame.one\n  at Frame.two"
+        viewModel.displayedEntries = [
+            LogEntry(lineNumber: 1, level: .error, message: "boom", rawLine: raw)
+        ]
+
+        XCTAssertEqual(viewModel.copyText(forRows: IndexSet(integer: 0)), raw)
+    }
+
+    // MARK: - Table View Clipboard Plumbing
+
+    /// Builds a table view backed by `viewModel`, matching the wiring in
+    /// `AppKitLogTableView.makeNSView`.
+    private func makeCopyableTable(rowCount: Int) -> CopyableLogTableView {
+        let tableView = CopyableLogTableView()
+        tableView.allowsMultipleSelection = true
+        tableView.copyProvider = { [weak viewModel] rows in
+            viewModel?.copyText(forRows: rows)
+        }
+
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("content"))
+        tableView.addTableColumn(column)
+        let dataSource = StaticRowCountDataSource(rowCount: rowCount)
+        tableDataSource = dataSource
+        tableView.dataSource = dataSource
+        tableView.reloadData()
+        return tableView
+    }
+
+    func testTableViewCopyWritesSelectedRowsToPasteboard() {
+        loadCopyFixture()
+        let tableView = makeCopyableTable(rowCount: viewModel.displayedEntries.count)
+        tableView.selectRowIndexes(IndexSet([0, 2]), byExtendingSelection: false)
+
+        NSPasteboard.general.clearContents()
+        tableView.copy(nil)
+
+        XCTAssertEqual(
+            NSPasteboard.general.string(forType: .string),
+            "[INFO] message 1\n[INFO] message 3"
+        )
+    }
+
+    func testTableViewCopyLeavesPasteboardIntactWithoutSelection() {
+        loadCopyFixture()
+        let tableView = makeCopyableTable(rowCount: viewModel.displayedEntries.count)
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("untouched", forType: .string)
+        tableView.copy(nil)
+
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "untouched")
+    }
+
+    func testTableViewValidatesCopyOnlyWhenRowsAreSelected() {
+        loadCopyFixture()
+        let tableView = makeCopyableTable(rowCount: viewModel.displayedEntries.count)
+        let copyItem = NSMenuItem(title: "Copy", action: #selector(CopyableLogTableView.copy(_:)), keyEquivalent: "c")
+
+        XCTAssertFalse(tableView.validateUserInterfaceItem(copyItem))
+
+        tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+
+        XCTAssertTrue(tableView.validateUserInterfaceItem(copyItem))
+    }
+
+    func testTableViewAllowsMultipleSelection() {
+        loadCopyFixture()
+        let tableView = makeCopyableTable(rowCount: viewModel.displayedEntries.count)
+        tableView.selectRowIndexes(IndexSet([0, 1]), byExtendingSelection: false)
+
+        XCTAssertEqual(tableView.selectedRowIndexes.count, 2)
     }
 
     // MARK: - Filter Change Counter

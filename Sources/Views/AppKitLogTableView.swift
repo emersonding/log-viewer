@@ -52,10 +52,15 @@ struct AppKitLogTableView: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
 
-        let tableView = NSTableView()
+        let tableView = CopyableLogTableView()
         tableView.style = .plain
         tableView.usesAlternatingRowBackgroundColors = false
-        tableView.allowsMultipleSelection = false
+        // Command-click toggles individual rows, shift-click extends the range —
+        // both come from AppKit once multiple selection is on.
+        tableView.allowsMultipleSelection = true
+        tableView.copyProvider = { [weak coordinator = context.coordinator] rows in
+            coordinator?.viewModel.copyText(forRows: rows)
+        }
         tableView.intercellSpacing = NSSize(width: 4, height: 0)
         tableView.gridStyleMask = []
         tableView.columnAutoresizingStyle = .noColumnAutoresizing
@@ -646,6 +651,41 @@ struct AppKitLogTableView: NSViewRepresentable {
                 self?.viewModel.isScrolledToBottom = isNearBottom
             }
         }
+    }
+}
+
+// MARK: - Table View with Clipboard Support
+
+/// NSTableView subclass that copies the selected log lines to the pasteboard.
+///
+/// `copy(_:)` serves the standard Edit ▸ Copy menu item, and `keyDown(with:)`
+/// handles ⌘C directly for the case where no menu item claims the key equivalent.
+final class CopyableLogTableView: NSTableView {
+    /// Produces the clipboard text for the given row indexes, or nil if there is
+    /// nothing to copy.
+    var copyProvider: (@MainActor (IndexSet) -> String?)?
+
+    @objc func copy(_ sender: Any?) {
+        guard let text = copyProvider?(selectedRowIndexes) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "c" {
+            copy(nil)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(copy(_:)) {
+            return !selectedRowIndexes.isEmpty
+        }
+        return super.validateUserInterfaceItem(item)
     }
 }
 

@@ -409,6 +409,20 @@ final class LogViewModel {
         }
     }
 
+    /// Build the clipboard text for a set of displayed row indexes.
+    ///
+    /// Rows are emitted in display order and joined by newlines so a multi-row
+    /// copy pastes as consecutive log lines. Returns nil when nothing usable is
+    /// selected, letting callers leave the pasteboard untouched.
+    func copyText(forRows rowIndexes: IndexSet) -> String? {
+        let lines = rowIndexes
+            .filter { $0 >= 0 && $0 < displayedEntries.count }
+            .map { displayedEntries[$0].rawLine }
+
+        guard !lines.isEmpty else { return nil }
+        return lines.joined(separator: "\n")
+    }
+
     /// Update search matches in the background for jump mode
     private func updateSearchMatchesInBackground() {
         // Cancel any in-flight search task

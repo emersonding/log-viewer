@@ -35,7 +35,8 @@ A simple GUI log reviewer as an alternative to the macOS native Console app, wit
 - **Auto-refresh** via file watching (detects appended content, log rotation, file deletion)
 - **Manual and incremental refresh** - refresh from the toolbar or Cmd+R; file-change refresh reads only new bytes
 - **Adjustable log font size** - table rows and syntax highlighting update when the font size changes
-- **Keyboard shortcuts** - Cmd+F (search), Cmd+R (refresh), Cmd+O (open), Cmd+0 (toggle sidebar), Cmd+1-6 (toggle filters)
+- **Row selection and copy** - Cmd+click and Shift+click build a multi-row selection, Cmd+C copies the raw log lines
+- **Keyboard shortcuts** - Cmd+F (search), Cmd+R (refresh), Cmd+O (open), Cmd+C (copy rows), Cmd+0 (toggle sidebar), Cmd+1-6 (toggle filters)
 - **Sidebar + history panel** - tabs for all currently opened files and a persistent history of previously opened files (toggle with Cmd+0)
 - **Drag and drop** file opening
 - **Line numbers** in gutter
@@ -225,6 +226,10 @@ lumen-log-viewer/
 | Shortcut | Action |
 |----------|--------|
 | Cmd+O | Open file |
+| Cmd+C | Copy selected row(s) as raw log lines |
+| Cmd+A | Select all rows |
+| Cmd+click | Add/remove a single row from the selection |
+| Shift+click | Extend the selection to the clicked row |
 | Cmd+R | Refresh file |
 | Cmd+F | Focus search (Esc to de-focus) |
 | Cmd+G | Next search match |
