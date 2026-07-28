@@ -1,0 +1,10 @@
+2026-01-15 09:12:03,001 [      0]   INFO - #c.e.d.StartupManager - IDE starting, build DEMO-2026.1
+2026-01-15 09:12:03,455 [    454]   INFO - #c.e.d.PluginManager - Loaded 42 plugins in 312 ms
+2026-01-15 09:12:04,120 [   1119]   WARN - #c.e.d.SettingsService - Config key "editor.legacy.mode" is deprecated
+2026-01-15 09:12:05,880 [   2879]  ERROR - #c.e.d.IndexUpdater - Failed to index module sample-module
+com.example.demo.IndexingException: Unable to read module descriptor
+	at com.example.demo.IndexUpdater.read(IndexUpdater.java:42)
+	at com.example.demo.IndexUpdater.run(IndexUpdater.java:17)
+2026-01-15 09:12:06,004 [   3003]   INFO - #c.e.d.IndexUpdater - Indexing finished in 1 s
+2026-01-15 09:12:07,500 [   4499] [AWT-EventQueue-0]  DEBUG - #c.e.d.ToolWindowManager - Tool window "Sample" opened
+2026-01-15 09:12:08,000 [   4999]   INFO - #c.e.d.DemoService - Cache warm-up complete

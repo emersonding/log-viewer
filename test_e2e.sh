@@ -48,7 +48,7 @@ echo ""
 
 # Test 2: Check if app appears in Dock (via process check)
 echo "Test 2: Verify app is running..."
-if ps aux | grep -i "[L]ogViewer" | grep -v grep > /dev/null; then
+if ps aux | grep "[L]umen.app/Contents/MacOS/Lumen" > /dev/null; then
     echo -e "${GREEN}✓${NC} Test 2 PASSED: App process is active"
 else
     echo -e "${RED}❌${NC} Test 2 FAILED: App process not found"

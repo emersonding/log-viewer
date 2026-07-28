@@ -19,7 +19,9 @@ actor LogParser {
     private let syslogTimestampRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#)
     private let epochTimestampRegex = try! NSRegularExpression(pattern: #"^\d{10,13}(\.\d+)?"#)
     private let logLevelRegex = try! NSRegularExpression(pattern: #"^\[?(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]?"#, options: .caseInsensitive)
-    private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)"#)
+    // Accepts "2026-04-13 10:00:00", "2026-04-13T10:00:00" and comma fractions
+    // ("2026-07-20 18:11:50,042" — IntelliJ IDEA / log4j / logback default).
+    private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2})[ T]+(\d{2}:\d{2}:\d{2})(?:[.,](\d{1,9}))?"#)
     private let syslogExtractRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})"#)
     private let epochExtractRegex = try! NSRegularExpression(pattern: #"^(\d{10,13}(?:\.\d+)?)"#)
     private let jsonTimestampFieldNames = ["timestamp", "time", "ts", "datetime", "date", "@timestamp"]
@@ -47,12 +49,6 @@ actor LogParser {
     private let spaceDatetimeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-    private let spaceDatetimeWithFracFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
@@ -335,7 +331,29 @@ actor LogParser {
         let timestamp = extractTimestamp(&remaining)
 
         // Extract log level
-        let level = extractLogLevel(&remaining)
+        var level = extractLogLevel(&remaining)
+
+        // Many loggers put bracketed context between the timestamp and the level,
+        // e.g. IntelliJ IDEA: "2026-07-20 18:11:50,042 [3733055]   WARN - logger - msg".
+        // Skip over those tokens and retry rather than giving up on the level.
+        if level == nil {
+            var probe = remaining
+            var skipped = 0
+            while level == nil, skipped < 3, let rest = strippingLeadingBracketToken(probe) {
+                probe = rest
+                skipped += 1
+                level = extractLogLevel(&probe)
+            }
+            if level != nil {
+                remaining = probe
+            }
+        }
+
+        // Drop the separator loggers place between the level and the message
+        // ("WARN - message", "WARN: message", "WARN | message").
+        if level != nil {
+            remaining = strippingLeadingSeparator(remaining)
+        }
 
         // What's left is the message
         let message = remaining.trimmingCharacters(in: .whitespaces)
@@ -629,26 +647,31 @@ actor LogParser {
         byte >= 48 && byte <= 57
     }
 
-    /// Try to parse space-separated datetime (e.g., "2026-04-13 10:00:00" or "2026-04-13 10:00:00.123")
+    /// Try to parse space-separated datetime (e.g., "2026-04-13 10:00:00",
+    /// "2026-04-13 10:00:00.123" or "2026-04-13 10:00:00,123").
+    ///
+    /// The date and time parts are recombined with a single space so that
+    /// alternative separators (`T`, repeated spaces) parse with one formatter,
+    /// and the fractional part is applied numerically so any digit count works.
     private func tryParseSpaceDatetime(_ line: String, consumedLength: inout String) -> Date? {
         let nsRange = NSRange(line.startIndex..., in: line)
         guard let match = spaceDatetimeExtractRegex.firstMatch(in: line, range: nsRange),
-              let range = Range(match.range, in: line) else {
+              let fullRange = Range(match.range, in: line),
+              let dateRange = Range(match.range(at: 1), in: line),
+              let timeRange = Range(match.range(at: 2), in: line) else {
             return nil
         }
 
-        let timestampString = String(line[range])
-
-        // Try with fractional seconds first, then without
-        var date = spaceDatetimeWithFracFormatter.date(from: timestampString)
-        if date == nil {
-            date = spaceDatetimeFormatter.date(from: timestampString)
+        guard var date = spaceDatetimeFormatter.date(from: "\(line[dateRange]) \(line[timeRange])") else {
+            return nil
         }
 
-        if date != nil {
-            consumedLength = String(line[range.upperBound...])
+        if let fractionRange = Range(match.range(at: 3), in: line),
+           let fraction = Double("0.\(line[fractionRange])") {
+            date = date.addingTimeInterval(fraction)
         }
 
+        consumedLength = String(line[fullRange.upperBound...])
         return date
     }
 
@@ -717,6 +740,32 @@ actor LogParser {
         // Consume the full match (including brackets) from the remaining line
         line = String(trimmed[fullRange.upperBound...])
         return level
+    }
+
+    /// Returns the remainder after a leading `[...]` token, or nil if the line
+    /// doesn't start with one (or the bracket is never closed on this line).
+    private func strippingLeadingBracketToken(_ line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.first == "[",
+              let closing = trimmed.firstIndex(of: "]") else {
+            return nil
+        }
+        return String(trimmed[trimmed.index(after: closing)...])
+    }
+
+    /// Drops a single `-`, `:` or `|` separator following the log level.
+    private func strippingLeadingSeparator(_ line: String) -> String {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.first, first == "-" || first == ":" || first == "|" else {
+            return trimmed
+        }
+
+        let rest = trimmed.dropFirst()
+        // Only a real separator if whitespace follows (keeps "-->" style text intact).
+        guard let next = rest.first, next.isWhitespace else {
+            return trimmed
+        }
+        return String(rest).trimmingCharacters(in: .whitespaces)
     }
 
     private func logLevel(for value: String) -> LogLevel? {

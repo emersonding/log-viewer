@@ -668,4 +668,12 @@ private final class LogTableRowView: NSTableRowView {
         NSColor.selectedContentBackgroundColor.withAlphaComponent(0.15).setFill()
         dirtyRect.fill()
     }
+
+    /// The selection fill above is intentionally faint, so cells must keep their
+    /// normal (dark) text colors. Without this, AppKit reports `.emphasized` for
+    /// selected rows and NSTableCellView repaints its text in the near-white
+    /// alternate selected color, which is unreadable on the light fill.
+    override var interiorBackgroundStyle: NSView.BackgroundStyle {
+        .normal
+    }
 }

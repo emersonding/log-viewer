@@ -489,4 +489,123 @@ final class LogParserTests: XCTestCase {
         // Should complete in reasonable time (< 5 seconds for 100k lines)
         XCTAssertLessThan(duration, 5.0)
     }
+
+    // MARK: - IntelliJ IDEA / log4j Format
+
+    /// Fractional seconds are applied numerically by the parser, so compare
+    /// timestamps with a sub-millisecond tolerance rather than for equality.
+    private static let fractionalFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    func testParseIntelliJIdeaLine() async throws {
+        let logData = """
+        2026-07-20 18:11:50,042 [3733055]   WARN - n.s.p.l.r.AbstractRuleChainVisitor - Exception applying rule
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].level, .warning)
+        XCTAssertEqual(entries[0].message, "n.s.p.l.r.AbstractRuleChainVisitor - Exception applying rule")
+
+        let expected = try XCTUnwrap(Self.fractionalFormatter.date(from: "2026-07-20 18:11:50.042"))
+        XCTAssertEqual(
+            try XCTUnwrap(entries[0].timestamp).timeIntervalSince1970,
+            expected.timeIntervalSince1970,
+            accuracy: 0.0005
+        )
+    }
+
+    func testParseIntelliJIdeaStackTraceIsOneEntry() async {
+        let logData = """
+        2026-07-20 18:11:50,042 [3733055]   WARN - n.s.p.l.r.AbstractRuleChainVisitor - Exception applying rule
+        java.lang.RuntimeException: org.jaxen.UnresolvableException: No Such Function matches
+        \tat net.sourceforge.pmd.lang.rule.xpath.JaxenXPathRuleQuery.evaluate(JaxenXPathRuleQuery.java:73)
+        2026-07-20 18:11:51,000 [3733056]   INFO - com.intellij.Whatever - Done
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].level, .warning)
+        XCTAssertTrue(entries[0].message.contains("java.lang.RuntimeException"))
+        XCTAssertEqual(entries[1].level, .info)
+        XCTAssertEqual(entries[1].message, "com.intellij.Whatever - Done")
+    }
+
+    func testParseCommaAndDotFractionsAreEquivalent() async {
+        let logData = """
+        2026-07-20 18:11:50,042 INFO comma
+        2026-07-20 18:11:50.042 INFO dot
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].timestamp, entries[1].timestamp)
+        XCTAssertEqual(entries[0].message, "comma")
+        XCTAssertEqual(entries[1].message, "dot")
+    }
+
+    func testParseIntelliJLogsFromFixtureFile() async throws {
+        let fixtureURL = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()
+            .appendingPathComponent("TestData/sample_intellij.log")
+        let data = try Data(contentsOf: fixtureURL)
+
+        let entries = await parser.parse(data)
+
+        // 10 lines; the 3 stack-trace lines fold into the ERROR entry.
+        XCTAssertEqual(entries.count, 7)
+        guard entries.count == 7 else { return }
+
+        XCTAssertEqual(entries.map(\.level), [.info, .info, .warning, .error, .info, .debug, .info])
+        XCTAssertTrue(entries.allSatisfy { $0.timestamp != nil })
+
+        // Padded context token is skipped, level and logger survive.
+        XCTAssertEqual(entries[0].message, "#c.e.d.StartupManager - IDE starting, build DEMO-2026.1")
+
+        // Comma fraction is parsed, not dropped.
+        let expected = try XCTUnwrap(Self.fractionalFormatter.date(from: "2026-01-15 09:12:03.455"))
+        XCTAssertEqual(
+            try XCTUnwrap(entries[1].timestamp).timeIntervalSince1970,
+            expected.timeIntervalSince1970,
+            accuracy: 0.0005
+        )
+
+        // Quoted text in the message is left untouched.
+        XCTAssertEqual(
+            entries[2].message,
+            #"#c.e.d.SettingsService - Config key "editor.legacy.mode" is deprecated"#
+        )
+
+        // Stack trace lines belong to the preceding ERROR entry.
+        XCTAssertTrue(entries[3].message.hasPrefix("#c.e.d.IndexUpdater - Failed to index module"))
+        XCTAssertTrue(entries[3].message.contains("com.example.demo.IndexingException"))
+        XCTAssertTrue(entries[3].message.contains("IndexUpdater.java:17"))
+        XCTAssertEqual(entries[3].rawLine.components(separatedBy: "\n").count, 4)
+
+        // Two bracketed context tokens (elapsed ms + thread) before the level.
+        XCTAssertEqual(entries[5].level, .debug)
+        XCTAssertEqual(entries[5].message, #"#c.e.d.ToolWindowManager - Tool window "Sample" opened"#)
+
+        // Line numbers stay aligned with the file despite the folded stack trace.
+        XCTAssertEqual(entries.map(\.lineNumber), [1, 2, 3, 4, 8, 9, 10])
+    }
+
+    func testBracketedLevelStillParsedWithoutSkippingContext() async {
+        let logData = """
+        2026-07-20 18:11:50,042 [ERROR] boom
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].level, .error)
+        XCTAssertEqual(entries[0].message, "boom")
+    }
 }
