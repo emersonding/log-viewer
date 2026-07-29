@@ -42,6 +42,11 @@ A simple GUI log reviewer as an alternative to the macOS native Console app, wit
 - **Line numbers** in gutter
 - **Multi-format timestamp parsing** - ISO 8601 (`2026-04-13T10:00:00Z`), space-separated (`2026-04-13 10:00:00`), syslog (`Apr 13 10:30:00`), Unix epoch
 
+## What's New in 2.4.0
+
+- Recognizes Java `SEVERE` logs as errors and preserves detected level text in messages.
+- Adds an `UNDEFINED` filter bucket so entries without a detected level can be shown or hidden.
+
 ## What's New in 2.3.0
 
 - Multi-row selection in the log table: Cmd+click toggles a row, Shift+click extends the range, Cmd+A selects all.
