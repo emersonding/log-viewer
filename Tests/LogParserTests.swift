@@ -33,7 +33,7 @@ final class LogParserTests: XCTestCase {
         XCTAssertEqual(entries.count, 1)
         XCTAssertNotNil(entries[0].timestamp)
         XCTAssertEqual(entries[0].level, .info)
-        XCTAssertEqual(entries[0].message, "Test message")
+        XCTAssertEqual(entries[0].message, "INFO Test message")
     }
 
     func testParseISO8601WithTimezone() async {
@@ -102,6 +102,60 @@ final class LogParserTests: XCTestCase {
         XCTAssertEqual(entries[3].level, .info)
         XCTAssertEqual(entries[4].level, .debug)
         XCTAssertEqual(entries[5].level, .trace)
+        XCTAssertEqual(entries.map(\.message), [
+            "FATAL Fatal error",
+            "ERROR Error message",
+            "WARNING Warning message",
+            "INFO Info message",
+            "DEBUG Debug message",
+            "TRACE Trace message"
+        ])
+        XCTAssertFalse(entries[2].message.contains("2026-04-13T10:30:02Z"))
+    }
+
+    func testParseSevereAsErrorAndEntryBoundary() async {
+        let logData = """
+        SEVERE: connection refused
+        INFO: retrying
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries.map(\.level), [.error, .info])
+        XCTAssertEqual(entries.map(\.message), ["SEVERE: connection refused", "INFO: retrying"])
+    }
+
+    func testRetainsSeparatorAfterDetectedLevel() async {
+        let logData = "2026-04-13T10:30:00Z WARN - Foo - msg".data(using: .utf8)!
+
+        let entries = await parser.parse(logData)
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].level, .warning)
+        XCTAssertEqual(entries[0].message, "WARN - Foo - msg")
+    }
+
+    func testLevelKeywordsRequireTrailingBoundary() async {
+        for line in ["Debugging session started", "INFORMATION about the release", "ERRORS: 5 total"] {
+            let entries = await parser.parse(line.data(using: .utf8)!)
+
+            XCTAssertEqual(entries.count, 1)
+            XCTAssertNil(entries[0].level)
+            XCTAssertEqual(entries[0].message, line)
+        }
+
+        let multiline = """
+        2026-04-13T10:30:00Z INFO First
+        Debugging session started
+        INFORMATION about the release
+        2026-04-13T10:30:01Z INFO Second
+        """.data(using: .utf8)!
+
+        let entries = await parser.parse(multiline)
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertTrue(entries[0].message.contains("Debugging session started"))
+        XCTAssertTrue(entries[0].message.contains("INFORMATION about the release"))
     }
 
     func testParseLogLevelAliases() async {
@@ -159,7 +213,7 @@ final class LogParserTests: XCTestCase {
         XCTAssertTrue(entries[0].message.contains("at function1()"))
         XCTAssertTrue(entries[0].message.contains("at function2()"))
         XCTAssertTrue(entries[0].message.contains("at function3()"))
-        XCTAssertEqual(entries[1].message, "Next message")
+        XCTAssertEqual(entries[1].message, "INFO Next message")
     }
 
     func testParseStackTrace() async {
@@ -247,8 +301,8 @@ final class LogParserTests: XCTestCase {
 
         // Blank lines should be skipped
         XCTAssertEqual(entries.count, 2)
-        XCTAssertEqual(entries[0].message, "First")
-        XCTAssertEqual(entries[1].message, "Second")
+        XCTAssertEqual(entries[0].message, "INFO First")
+        XCTAssertEqual(entries[1].message, "INFO Second")
     }
 
     func testParseMixedFormats() async {
@@ -510,7 +564,10 @@ final class LogParserTests: XCTestCase {
 
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(entries[0].level, .warning)
-        XCTAssertEqual(entries[0].message, "n.s.p.l.r.AbstractRuleChainVisitor - Exception applying rule")
+        XCTAssertEqual(
+            entries[0].message,
+            "[3733055]   WARN - n.s.p.l.r.AbstractRuleChainVisitor - Exception applying rule"
+        )
 
         let expected = try XCTUnwrap(Self.fractionalFormatter.date(from: "2026-07-20 18:11:50.042"))
         XCTAssertEqual(
@@ -534,7 +591,7 @@ final class LogParserTests: XCTestCase {
         XCTAssertEqual(entries[0].level, .warning)
         XCTAssertTrue(entries[0].message.contains("java.lang.RuntimeException"))
         XCTAssertEqual(entries[1].level, .info)
-        XCTAssertEqual(entries[1].message, "com.intellij.Whatever - Done")
+        XCTAssertEqual(entries[1].message, "[3733056]   INFO - com.intellij.Whatever - Done")
     }
 
     func testParseCommaAndDotFractionsAreEquivalent() async {
@@ -547,8 +604,8 @@ final class LogParserTests: XCTestCase {
 
         XCTAssertEqual(entries.count, 2)
         XCTAssertEqual(entries[0].timestamp, entries[1].timestamp)
-        XCTAssertEqual(entries[0].message, "comma")
-        XCTAssertEqual(entries[1].message, "dot")
+        XCTAssertEqual(entries[0].message, "INFO comma")
+        XCTAssertEqual(entries[1].message, "INFO dot")
     }
 
     func testParseIntelliJLogsFromFixtureFile() async throws {
@@ -566,8 +623,11 @@ final class LogParserTests: XCTestCase {
         XCTAssertEqual(entries.map(\.level), [.info, .info, .warning, .error, .info, .debug, .info])
         XCTAssertTrue(entries.allSatisfy { $0.timestamp != nil })
 
-        // Padded context token is skipped, level and logger survive.
-        XCTAssertEqual(entries[0].message, "#c.e.d.StartupManager - IDE starting, build DEMO-2026.1")
+        // Padded context token and level stay in the complete message.
+        XCTAssertEqual(
+            entries[0].message,
+            "[      0]   INFO - #c.e.d.StartupManager - IDE starting, build DEMO-2026.1"
+        )
 
         // Comma fraction is parsed, not dropped.
         let expected = try XCTUnwrap(Self.fractionalFormatter.date(from: "2026-01-15 09:12:03.455"))
@@ -580,18 +640,21 @@ final class LogParserTests: XCTestCase {
         // Quoted text in the message is left untouched.
         XCTAssertEqual(
             entries[2].message,
-            #"#c.e.d.SettingsService - Config key "editor.legacy.mode" is deprecated"#
+            #"[   1119]   WARN - #c.e.d.SettingsService - Config key "editor.legacy.mode" is deprecated"#
         )
 
         // Stack trace lines belong to the preceding ERROR entry.
-        XCTAssertTrue(entries[3].message.hasPrefix("#c.e.d.IndexUpdater - Failed to index module"))
+        XCTAssertTrue(entries[3].message.hasPrefix("[   2879]  ERROR - #c.e.d.IndexUpdater - Failed to index module"))
         XCTAssertTrue(entries[3].message.contains("com.example.demo.IndexingException"))
         XCTAssertTrue(entries[3].message.contains("IndexUpdater.java:17"))
         XCTAssertEqual(entries[3].rawLine.components(separatedBy: "\n").count, 4)
 
         // Two bracketed context tokens (elapsed ms + thread) before the level.
         XCTAssertEqual(entries[5].level, .debug)
-        XCTAssertEqual(entries[5].message, #"#c.e.d.ToolWindowManager - Tool window "Sample" opened"#)
+        XCTAssertEqual(
+            entries[5].message,
+            #"[   4499] [AWT-EventQueue-0]  DEBUG - #c.e.d.ToolWindowManager - Tool window "Sample" opened"#
+        )
 
         // Line numbers stay aligned with the file despite the folded stack trace.
         XCTAssertEqual(entries.map(\.lineNumber), [1, 2, 3, 4, 8, 9, 10])
@@ -606,6 +669,6 @@ final class LogParserTests: XCTestCase {
 
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(entries[0].level, .error)
-        XCTAssertEqual(entries[0].message, "boom")
+        XCTAssertEqual(entries[0].message, "[ERROR] boom")
     }
 }
