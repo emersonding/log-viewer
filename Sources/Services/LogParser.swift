@@ -12,13 +12,53 @@ import Foundation
 /// Supports chunk-based streaming for large files: data is processed in 1MB chunks
 /// with periodic yielding between chunks to keep the UI responsive.
 actor LogParser {
+    private struct LevelAlias {
+        let keyword: String
+        let level: LogLevel
+        let recognizedInText: Bool
+    }
+
+    /// JSON fields can safely support more aliases because their value is already
+    /// identified as a level. Plain text stays deliberately conservative because
+    /// a match also controls whether a line starts a new entry.
+    private static let levelAliases = [
+        LevelAlias(keyword: "FATAL", level: .fatal, recognizedInText: true),
+        LevelAlias(keyword: "CRITICAL", level: .fatal, recognizedInText: true),
+        LevelAlias(keyword: "ERROR", level: .error, recognizedInText: true),
+        LevelAlias(keyword: "SEVERE", level: .error, recognizedInText: true),
+        LevelAlias(keyword: "ERR", level: .error, recognizedInText: false),
+        LevelAlias(keyword: "WARNING", level: .warning, recognizedInText: true),
+        LevelAlias(keyword: "WARN", level: .warning, recognizedInText: true),
+        LevelAlias(keyword: "INFORMATION", level: .info, recognizedInText: false),
+        LevelAlias(keyword: "NOTICE", level: .info, recognizedInText: false),
+        LevelAlias(keyword: "INFO", level: .info, recognizedInText: true),
+        LevelAlias(keyword: "DEBUG", level: .debug, recognizedInText: true),
+        LevelAlias(keyword: "TRACE", level: .trace, recognizedInText: true)
+    ]
+
+    private static let levelMap = Dictionary(
+        uniqueKeysWithValues: levelAliases.map { ($0.keyword, $0.level) }
+    )
+
+    private static let logLevelRegex: NSRegularExpression = {
+        let alternation = levelAliases
+            .filter(\.recognizedInText)
+            .map(\.keyword)
+            .sorted { $0.count > $1.count }
+            .map(NSRegularExpression.escapedPattern(for:))
+            .joined(separator: "|")
+        return try! NSRegularExpression(
+            pattern: #"^\[?(\#(alternation))\]?(?![A-Za-z0-9_])"#,
+            options: .caseInsensitive
+        )
+    }()
+
     /// Default chunk size for processing: 1MB
     private let chunkSize = 1_048_576
 
     // Pre-compiled regexes for performance
     private let syslogTimestampRegex = try! NSRegularExpression(pattern: #"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+"#)
     private let epochTimestampRegex = try! NSRegularExpression(pattern: #"^\d{10,13}(\.\d+)?"#)
-    private let logLevelRegex = try! NSRegularExpression(pattern: #"^\[?(FATAL|CRITICAL|ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]?"#, options: .caseInsensitive)
     // Accepts "2026-04-13 10:00:00", "2026-04-13T10:00:00" and comma fractions
     // ("2026-07-20 18:11:50,042" — IntelliJ IDEA / log4j / logback default).
     private let spaceDatetimeExtractRegex = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2})[ T]+(\d{2}:\d{2}:\d{2})(?:[.,](\d{1,9}))?"#)
@@ -316,7 +356,7 @@ actor LogParser {
     /// Checks if line starts with a log level keyword
     private func hasLogLevelAtStart(_ line: String) -> Bool {
         let nsRange = NSRange(line.startIndex..., in: line)
-        return logLevelRegex.firstMatch(in: line, range: nsRange) != nil
+        return Self.logLevelRegex.firstMatch(in: line, range: nsRange) != nil
     }
 
     /// Parse a single line into a PendingEntry
@@ -330,8 +370,8 @@ actor LogParser {
         // Extract timestamp
         let timestamp = extractTimestamp(&remaining)
 
-        // Extract log level
-        var level = extractLogLevel(&remaining)
+        // Detect the log level without consuming it from the message.
+        var level = detectLogLevel(in: remaining).level
 
         // Many loggers put bracketed context between the timestamp and the level,
         // e.g. IntelliJ IDEA: "2026-07-20 18:11:50,042 [3733055]   WARN - logger - msg".
@@ -342,17 +382,8 @@ actor LogParser {
             while level == nil, skipped < 3, let rest = strippingLeadingBracketToken(probe) {
                 probe = rest
                 skipped += 1
-                level = extractLogLevel(&probe)
+                level = detectLogLevel(in: probe).level
             }
-            if level != nil {
-                remaining = probe
-            }
-        }
-
-        // Drop the separator loggers place between the level and the message
-        // ("WARN - message", "WARN: message", "WARN | message").
-        if level != nil {
-            remaining = strippingLeadingSeparator(remaining)
         }
 
         // What's left is the message
@@ -719,27 +750,19 @@ actor LogParser {
         return nil
     }
 
-    /// Extract log level from the beginning of a string.
+    /// Detect a log level at the beginning of a string without mutating it.
     /// Handles both bare keywords (ERROR) and bracketed ([ERROR]) formats.
-    private func extractLogLevel(_ line: inout String) -> LogLevel? {
+    private func detectLogLevel(in line: String) -> (level: LogLevel?, matchedRange: NSRange?) {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         let nsRange = NSRange(trimmed.startIndex..., in: trimmed)
 
-        guard let match = logLevelRegex.firstMatch(in: trimmed, range: nsRange),
-              let fullRange = Range(match.range, in: trimmed),
+        guard let match = Self.logLevelRegex.firstMatch(in: trimmed, range: nsRange),
               let keywordNSRange = Range(match.range(at: 1), in: trimmed) else {
-            // No log level found, leave line as-is
-            line = trimmed
-            return nil
+            return (nil, nil)
         }
 
-        // Use capture group 1 (the keyword without brackets) for level lookup
         let keyword = String(trimmed[keywordNSRange]).uppercased()
-
-        let level = logLevel(for: keyword)
-        // Consume the full match (including brackets) from the remaining line
-        line = String(trimmed[fullRange.upperBound...])
-        return level
+        return (logLevel(for: keyword), match.range)
     }
 
     /// Returns the remainder after a leading `[...]` token, or nil if the line
@@ -753,38 +776,9 @@ actor LogParser {
         return String(trimmed[trimmed.index(after: closing)...])
     }
 
-    /// Drops a single `-`, `:` or `|` separator following the log level.
-    private func strippingLeadingSeparator(_ line: String) -> String {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard let first = trimmed.first, first == "-" || first == ":" || first == "|" else {
-            return trimmed
-        }
-
-        let rest = trimmed.dropFirst()
-        // Only a real separator if whitespace follows (keeps "-->" style text intact).
-        guard let next = rest.first, next.isWhitespace else {
-            return trimmed
-        }
-        return String(rest).trimmingCharacters(in: .whitespaces)
-    }
-
     private func logLevel(for value: String) -> LogLevel? {
         let keyword = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let levelMap: [String: LogLevel] = [
-            "FATAL": .fatal,
-            "CRITICAL": .fatal,
-            "ERROR": .error,
-            "ERR": .error,
-            "WARN": .warning,
-            "WARNING": .warning,
-            "INFO": .info,
-            "INFORMATION": .info,
-            "NOTICE": .info,
-            "DEBUG": .debug,
-            "TRACE": .trace
-        ]
-
-        if let level = levelMap[keyword] {
+        if let level = Self.levelMap[keyword] {
             return level
         }
 

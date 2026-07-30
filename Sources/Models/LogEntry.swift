@@ -71,6 +71,7 @@ enum LogLevel: String, CaseIterable, Sendable, Codable {
     case info = "INFO"
     case debug = "DEBUG"
     case trace = "TRACE"
+    case undefined = "UNDEFINED"
 
     /// Returns the color for this log level, adaptive for light and dark mode
     var color: Color {
@@ -92,6 +93,8 @@ enum LogLevel: String, CaseIterable, Sendable, Codable {
             return .gray
         case .trace:
             return Color(.systemGray)
+        case .undefined:
+            return Color(nsColor: .tertiaryLabelColor)
         }
     }
 
@@ -124,6 +127,7 @@ enum LogLevel: String, CaseIterable, Sendable, Codable {
         case .info: return "info.circle"
         case .debug: return "ant"
         case .trace: return "line.3.horizontal"
+        case .undefined: return "questionmark.circle"
         }
     }
 
@@ -136,6 +140,7 @@ enum LogLevel: String, CaseIterable, Sendable, Codable {
         case .info: return .controlAccentColor
         case .debug: return .systemGray
         case .trace: return .systemGray
+        case .undefined: return .tertiaryLabelColor
         }
     }
 }

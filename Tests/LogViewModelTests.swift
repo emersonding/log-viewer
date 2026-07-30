@@ -324,19 +324,50 @@ final class LogViewModelTests: XCTestCase {
         })
     }
 
-    func testApplyFiltersNilLevelAlwaysShown() async throws {
-        // Given: Log entries with nil level
+    func testApplyFiltersUndefinedLevelBucket() async throws {
+        // Given: Log entries with and without a detected level
         viewModel.allEntries = [
             LogEntry(lineNumber: 1, level: .error, message: "Error", rawLine: "ERROR Error"),
             LogEntry(lineNumber: 2, level: nil, message: "No level", rawLine: "No level")
         ]
 
-        // When: Filtering to only ERROR
+        // Removing UNDEFINED hides nil-level entries.
         viewModel.filterState.enabledLevels = [.error]
         viewModel.applyFilters()
+        XCTAssertEqual(viewModel.displayedEntries.map(\.message), ["Error"])
 
-        // Then: Both ERROR and nil level entries shown
+        // Enabling UNDEFINED shows them.
+        viewModel.filterState.enabledLevels = [.error, .undefined]
+        viewModel.applyFilters()
         XCTAssertEqual(viewModel.displayedEntries.count, 2)
+
+        // The "None" state hides every entry, including nil-level entries.
+        viewModel.filterState.enabledLevels = []
+        viewModel.applyFilters()
+        XCTAssertTrue(viewModel.displayedEntries.isEmpty)
+    }
+
+    func testFilterStateMigratesUndefinedForLegacyPayload() throws {
+        let legacyPayload = """
+        {
+          "enabledLevels": ["ERROR", "INFO"],
+          "timeRangeStart": null,
+          "timeRangeEnd": null
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(FilterState.self, from: legacyPayload)
+
+        XCTAssertEqual(decoded.enabledLevels, [.error, .info, .undefined])
+    }
+
+    func testFilterStatePreservesDisabledUndefinedAfterMigration() throws {
+        let original = FilterState(enabledLevels: [.error])
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(FilterState.self, from: data)
+
+        XCTAssertEqual(decoded.enabledLevels, [.error])
     }
 
     func testApplyFiltersTimeRangeStart() async throws {

@@ -80,13 +80,14 @@ final class ModelTests: XCTestCase {
 
     func testLogLevelAllCases() {
         let levels = LogLevel.allCases
-        XCTAssertEqual(levels.count, 6)
+        XCTAssertEqual(levels.count, 7)
         XCTAssertTrue(levels.contains(.fatal))
         XCTAssertTrue(levels.contains(.error))
         XCTAssertTrue(levels.contains(.warning))
         XCTAssertTrue(levels.contains(.info))
         XCTAssertTrue(levels.contains(.debug))
         XCTAssertTrue(levels.contains(.trace))
+        XCTAssertTrue(levels.contains(.undefined))
     }
 
     // MARK: - FilterState Tests
@@ -94,13 +95,14 @@ final class ModelTests: XCTestCase {
     func testFilterStateDefaults() {
         let state = FilterState()
 
-        XCTAssertEqual(state.enabledLevels.count, 6)
+        XCTAssertEqual(state.enabledLevels.count, 7)
         XCTAssertTrue(state.enabledLevels.contains(.fatal))
         XCTAssertTrue(state.enabledLevels.contains(.error))
         XCTAssertTrue(state.enabledLevels.contains(.warning))
         XCTAssertTrue(state.enabledLevels.contains(.info))
         XCTAssertTrue(state.enabledLevels.contains(.debug))
         XCTAssertTrue(state.enabledLevels.contains(.trace))
+        XCTAssertTrue(state.enabledLevels.contains(.undefined))
         XCTAssertNil(state.timeRangeStart)
         XCTAssertNil(state.timeRangeEnd)
         XCTAssertTrue(state.isDefault)

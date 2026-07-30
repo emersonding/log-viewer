@@ -44,7 +44,7 @@ struct FilterBar: View {
                     .frame(height: 16)
 
                 // Log level toggle buttons (in severity order)
-                ForEach([LogLevel.fatal, .error, .warning, .info, .debug, .trace], id: \.self) { level in
+                ForEach([LogLevel.fatal, .error, .warning, .info, .debug, .trace, .undefined], id: \.self) { level in
                     LogLevelToggle(
                         level: level,
                         isEnabled: viewModel.filterState.enabledLevels.contains(level)

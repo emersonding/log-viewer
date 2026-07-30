@@ -467,7 +467,7 @@ final class LogViewModel {
             // chaining multiple .filter() calls that create intermediate arrays.
             return entries.filter { entry in
                 // Log level filter
-                if let level = entry.level, !levels.contains(level) {
+                if !levels.contains(entry.level ?? .undefined) {
                     return false
                 }
                 // Time range filter
@@ -497,7 +497,7 @@ final class LogViewModel {
             : nil
 
         return allEntries.filter { entry in
-            if let level = entry.level, !levels.contains(level) {
+            if !levels.contains(entry.level ?? .undefined) {
                 return false
             }
             if let startTime = startTime, let ts = entry.timestamp, ts < startTime {

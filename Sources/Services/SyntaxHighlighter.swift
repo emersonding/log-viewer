@@ -38,7 +38,7 @@ final class SyntaxHighlighter {
         quotedStringRegex = try? NSRegularExpression(pattern: #"\"[^\"]*\"|'[^']*'"#)
 
         // Pre-compile level patterns
-        for level in LogLevel.allCases {
+        for level in LogLevel.allCases where level != .undefined {
             let pattern = "\\[?\(level.rawValue)\\]?"
             levelRegexCache[level] = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
         }
@@ -118,6 +118,7 @@ final class SyntaxHighlighter {
                 case .info: nsColor = .controlAccentColor
                 case .debug: nsColor = .systemGray
                 case .trace: nsColor = .systemGray
+                case .undefined: nsColor = .tertiaryLabelColor
                 }
                 result.addAttribute(.foregroundColor, value: nsColor, range: match.range)
                 result.addAttribute(.font, value: boldFont, range: match.range)
